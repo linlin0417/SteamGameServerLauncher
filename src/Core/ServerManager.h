@@ -5,7 +5,7 @@
 #include <QString>
 #include <QStringList>
 
-class QProcess;
+#include <QProcess>
 
 /// Controls the game server process and manages its settings.
 class ServerManager : public QObject

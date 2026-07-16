@@ -4,7 +4,7 @@
 #include <QString>
 #include <QStringList>
 
-class QProcess;
+#include <QProcess>
 class QNetworkAccessManager;
 class QNetworkReply;
 
