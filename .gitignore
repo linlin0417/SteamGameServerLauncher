@@ -1,0 +1,36 @@
+# Build directories
+build/
+cmake-build-*/
+out/
+
+# IDE files
+.vs/
+.vscode/
+*.user
+*.suo
+*.sln
+*.vcxproj*
+.idea/
+*.swp
+*~
+
+# Qt generated
+moc_*
+ui_*
+qrc_*
+*.moc
+
+# Compiled
+*.obj
+*.o
+*.exe
+*.dll
+*.lib
+*.a
+*.pdb
+*.ilk
+
+# Runtime data
+steamcmd/
+servers/
+config/launcher_settings.json
