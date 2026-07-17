@@ -88,9 +88,15 @@ set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Steam Game Server Launcher")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "${PROJECT_NAME}")
 
 if(WIN32)
-    set(CPACK_GENERATOR "WIX;ZIP")
-    set(CPACK_WIX_UPGRADE_GUID "00000000-0000-0000-0000-000000000001") # Change this for a real app
+    # 支援產生 MSI (WIX)、EXE (NSIS) 與 ZIP
+    set(CPACK_GENERATOR "WIX;NSIS;ZIP")
+    set(CPACK_WIX_UPGRADE_GUID "B81B7F0E-9C3B-443B-9A74-D72D1AC5B853") # 替換為真實唯一的 GUID
     set(CPACK_WIX_PROGRAM_MENU_FOLDER "Steam Game Server Launcher")
+    
+    # NSIS (EXE 安裝檔) 專屬設定，會自動產生解除安裝程式與捷徑
+    set(CPACK_NSIS_DISPLAY_NAME "Steam Game Server Launcher")
+    set(CPACK_NSIS_MUI_ICON "${CMAKE_SOURCE_DIR}/src/UI/icon.ico") # 如果未來有圖示可放這
+    set(CPACK_NSIS_INSTDIR_NAME "SteamGameServerLauncher")
     
     # Shortcut for main executable
     set(CPACK_PACKAGE_EXECUTABLES "SteamGameServerLauncher" "Steam Game Server Launcher")

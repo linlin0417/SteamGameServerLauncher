@@ -63,4 +63,5 @@ jobs:
         prerelease: false
         files: |
           build/SteamGameServerLauncher-*.msi
+          build/SteamGameServerLauncher-*.exe
           build/SteamGameServerLauncher-*.zip
