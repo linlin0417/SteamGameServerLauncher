@@ -1,0 +1,64 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    if: "contains(github.event.head_commit.message, 'AndBuild')"
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Get Version from CMakeLists.txt
+      id: get_version
+      shell: pwsh
+      run: |
+        $cmake_content = Get-Content CMakeLists.txt -Raw
+        if ($cmake_content -match 'project\([^)]+VERSION\s+([0-9.]+)') {
+            $version = $matches[1]
+            echo "VERSION=$version" >> $env:GITHUB_ENV
+            echo "Extracted version: $version"
+        } else {
+            echo "VERSION=1.0.0" >> $env:GITHUB_ENV
+            echo "Failed to extract version, using fallback 1.0.0"
+        }
+
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: '6.5.3'
+        host: 'windows'
+        target: 'desktop'
+        arch: 'win64_msvc2019_64'
+        modules: 'qtnetwork'
+
+    - name: Configure CMake
+      run: >
+        cmake -S . -B build
+        -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build
+      run: cmake --build build --config Release --parallel
+
+    - name: Package (CPack)
+      working-directory: build
+      run: cpack -C Release -G "WIX;ZIP"
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ env.VERSION }}
+        name: Release v${{ env.VERSION }}
+        body: "Automated release triggered by commit message containing 'AndBuild'."
+        draft: false
+        prerelease: false
+        files: |
+          build/SteamGameServerLauncher-*.msi
+          build/SteamGameServerLauncher-*.zip

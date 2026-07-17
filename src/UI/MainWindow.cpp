@@ -42,8 +42,13 @@ MainWindow::MainWindow(QWidget *parent)
     m_updater   = new GithubUpdater(
         AppConfig::GithubOwner, AppConfig::GithubRepo, APP_VERSION, this);
 
-    m_steamCmd->setSteamCmdDir(
-        QCoreApplication::applicationDirPath() + "/" + AppConfig::SteamCmdSubDir);
+    // Load settings first to get the configured paths
+    const QJsonObject settings = ServerManager::loadSettings(settingsFilePath());
+    QString steamPath = settings.value("steamCmdPath").toString();
+    if (steamPath.isEmpty()) {
+        steamPath = QCoreApplication::applicationDirPath() + "/" + AppConfig::SteamCmdSubDir;
+    }
+    m_steamCmd->setSteamCmdDir(steamPath);
 
     // --- Central widget with tabs ---
     QTabWidget *tabs = new QTabWidget;
@@ -402,6 +407,26 @@ QWidget *MainWindow::createSettingsTab()
     pathForm->setSpacing(10);
     pathForm->setContentsMargins(16, 24, 16, 16);
 
+    QHBoxLayout *steamRow = new QHBoxLayout;
+    m_editSteamCmdPath = new QLineEdit;
+    m_editSteamCmdPath->setPlaceholderText(tr("SteamCMD 根目錄..."));
+    QPushButton *btnBrowseSteam = new QPushButton(tr("瀏覽..."));
+    btnBrowseSteam->setMinimumWidth(60);
+    connect(btnBrowseSteam, &QPushButton::clicked, this, &MainWindow::onBrowseSteamCmdPath);
+    steamRow->addWidget(m_editSteamCmdPath, 1);
+    steamRow->addWidget(btnBrowseSteam);
+    pathForm->addRow(tr("SteamCMD 路徑:"), steamRow);
+
+    QHBoxLayout *baseRow = new QHBoxLayout;
+    m_editServerBasePath = new QLineEdit;
+    m_editServerBasePath->setPlaceholderText(tr("伺服器安裝母目錄 (例如: /data)"));
+    QPushButton *btnBrowseBase = new QPushButton(tr("瀏覽..."));
+    btnBrowseBase->setMinimumWidth(60);
+    connect(btnBrowseBase, &QPushButton::clicked, this, &MainWindow::onBrowseServerBasePath);
+    baseRow->addWidget(m_editServerBasePath, 1);
+    baseRow->addWidget(btnBrowseBase);
+    pathForm->addRow(tr("安裝母目錄:"), baseRow);
+
     QHBoxLayout *exeRow = new QHBoxLayout;
     m_editServerExePath = new QLineEdit;
     m_editServerExePath->setPlaceholderText(tr("伺服器執行檔路徑..."));
@@ -410,7 +435,7 @@ QWidget *MainWindow::createSettingsTab()
     connect(btnBrowse, &QPushButton::clicked, this, &MainWindow::onBrowseServerExe);
     exeRow->addWidget(m_editServerExePath, 1);
     exeRow->addWidget(btnBrowse);
-    pathForm->addRow(tr("伺服器路徑:"), exeRow);
+    pathForm->addRow(tr("伺服器執行檔:"), exeRow);
 
     m_editAdditionalArgs = new QLineEdit;
     m_editAdditionalArgs->setPlaceholderText(tr("額外的啟動參數 (可選)"));
@@ -585,6 +610,24 @@ void MainWindow::onBrowseServerExe()
     }
 }
 
+void MainWindow::onBrowseSteamCmdPath()
+{
+    const QString path = QFileDialog::getExistingDirectory(
+        this, tr("Select SteamCMD Directory"), m_editSteamCmdPath->text());
+    if (!path.isEmpty()) {
+        m_editSteamCmdPath->setText(QDir::toNativeSeparators(path));
+    }
+}
+
+void MainWindow::onBrowseServerBasePath()
+{
+    const QString path = QFileDialog::getExistingDirectory(
+        this, tr("Select Server Base Directory"), m_editServerBasePath->text());
+    if (!path.isEmpty()) {
+        m_editServerBasePath->setText(QDir::toNativeSeparators(path));
+    }
+}
+
 // ═══════════════════════════════════════════════════════════════════
 //  Helpers
 // ═══════════════════════════════════════════════════════════════════
@@ -635,8 +678,12 @@ QString MainWindow::settingsFilePath() const
 
 QString MainWindow::serverInstallDir() const
 {
-    return QCoreApplication::applicationDirPath() + "/"
-           + AppConfig::ServersSubDir + "/icarus";
+    const QJsonObject s = ServerManager::loadSettings(settingsFilePath());
+    QString basePath = s.value("serverBasePath").toString();
+    if (basePath.isEmpty()) {
+        basePath = QCoreApplication::applicationDirPath() + "/" + AppConfig::ServersSubDir;
+    }
+    return basePath + "/icarus";
 }
 
 void MainWindow::loadSettingsToUI()
@@ -648,6 +695,8 @@ void MainWindow::loadSettingsToUI()
     m_spinMaxPlayers->setValue(   s.value("maxPlayers").toInt(AppConfig::DefaultMaxPlayers));
     m_spinPort->setValue(         s.value("port").toInt(AppConfig::DefaultPort));
     m_spinQueryPort->setValue(    s.value("queryPort").toInt(AppConfig::DefaultQueryPort));
+    m_editSteamCmdPath->setText(  s.value("steamCmdPath").toString());
+    m_editServerBasePath->setText(s.value("serverBasePath").toString());
     m_editServerExePath->setText( s.value("serverExePath").toString());
     m_editAdditionalArgs->setText(s.value("additionalArgs").toString());
 }
@@ -661,13 +710,22 @@ void MainWindow::saveSettingsFromUI()
     s["maxPlayers"]     = m_spinMaxPlayers->value();
     s["port"]           = m_spinPort->value();
     s["queryPort"]      = m_spinQueryPort->value();
+    s["steamCmdPath"]   = m_editSteamCmdPath->text();
+    s["serverBasePath"] = m_editServerBasePath->text();
     s["serverExePath"]  = m_editServerExePath->text();
     s["additionalArgs"] = m_editAdditionalArgs->text();
 
-    if (ServerManager::saveSettings(settingsFilePath(), s))
+    if (ServerManager::saveSettings(settingsFilePath(), s)) {
         appendLog(tr("Settings saved."));
-    else
+        // Update SteamCmdManager with new path immediately
+        QString steamPath = m_editSteamCmdPath->text();
+        if (steamPath.isEmpty()) {
+            steamPath = QCoreApplication::applicationDirPath() + "/" + AppConfig::SteamCmdSubDir;
+        }
+        m_steamCmd->setSteamCmdDir(steamPath);
+    } else {
         appendLog(tr("⚠ Failed to save settings."));
+    }
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)

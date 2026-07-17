@@ -47,6 +47,8 @@ private:
     void onStartServer();
     void onStopServer();
     void onCheckForUpdate();
+    void onBrowseSteamCmdPath();
+    void onBrowseServerBasePath();
     void onBrowseServerExe();
 
     // --- Core modules ---
@@ -70,6 +72,8 @@ private:
     QSpinBox  *m_spinMaxPlayers     = nullptr;
     QSpinBox  *m_spinPort           = nullptr;
     QSpinBox  *m_spinQueryPort      = nullptr;
+    QLineEdit *m_editSteamCmdPath   = nullptr;
+    QLineEdit *m_editServerBasePath = nullptr;
     QLineEdit *m_editServerExePath  = nullptr;
     QLineEdit *m_editAdditionalArgs = nullptr;
 

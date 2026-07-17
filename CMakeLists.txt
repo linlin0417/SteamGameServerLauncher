@@ -56,3 +56,45 @@ target_link_libraries(Updater PRIVATE Qt${QT_VERSION_MAJOR}::Core)
 target_compile_definitions(Updater PRIVATE
     APP_VERSION="${PROJECT_VERSION}"
 )
+
+# --- windeployqt ---
+# Find windeployqt executable
+get_target_property(_qt_bin_dir Qt${QT_VERSION_MAJOR}::qmake IMPORTED_LOCATION)
+get_filename_component(_qt_bin_dir "${_qt_bin_dir}" DIRECTORY)
+find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS "${_qt_bin_dir}")
+
+if(WINDEPLOYQT_EXECUTABLE AND WIN32)
+    # Run windeployqt on main executable
+    add_custom_command(TARGET SteamGameServerLauncher POST_BUILD
+        COMMAND "${WINDEPLOYQT_EXECUTABLE}" --no-translations --compiler-runtime --dir "$<TARGET_FILE_DIR:SteamGameServerLauncher>" "$<TARGET_FILE:SteamGameServerLauncher>"
+        COMMENT "Running windeployqt on SteamGameServerLauncher..."
+    )
+    # Run windeployqt on Updater
+    add_custom_command(TARGET Updater POST_BUILD
+        COMMAND "${WINDEPLOYQT_EXECUTABLE}" --no-translations --compiler-runtime --dir "$<TARGET_FILE_DIR:Updater>" "$<TARGET_FILE:Updater>"
+        COMMENT "Running windeployqt on Updater..."
+    )
+endif()
+
+# --- Installation ---
+install(TARGETS SteamGameServerLauncher Updater DESTINATION bin)
+install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/" DESTINATION bin
+        FILES_MATCHING PATTERN "*.dll" PATTERN "plugins/*" PATTERN "platforms/*" PATTERN "styles/*" PATTERN "tls/*" PATTERN "networkinformation/*")
+
+# --- CPack Configuration ---
+set(CPACK_PACKAGE_NAME "${PROJECT_NAME}")
+set(CPACK_PACKAGE_VENDOR "linlin0417")
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Steam Game Server Launcher")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "${PROJECT_NAME}")
+
+if(WIN32)
+    set(CPACK_GENERATOR "WIX;ZIP")
+    set(CPACK_WIX_UPGRADE_GUID "00000000-0000-0000-0000-000000000001") # Change this for a real app
+    set(CPACK_WIX_PROGRAM_MENU_FOLDER "Steam Game Server Launcher")
+    
+    # Shortcut for main executable
+    set(CPACK_PACKAGE_EXECUTABLES "SteamGameServerLauncher" "Steam Game Server Launcher")
+endif()
+
+include(CPack)
