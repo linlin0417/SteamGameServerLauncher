@@ -79,7 +79,9 @@ endif()
 # --- Installation ---
 install(TARGETS SteamGameServerLauncher Updater DESTINATION bin)
 install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/" DESTINATION bin
-        FILES_MATCHING PATTERN "*.dll" PATTERN "plugins/*" PATTERN "platforms/*" PATTERN "styles/*" PATTERN "tls/*" PATTERN "networkinformation/*")
+        FILES_MATCHING PATTERN "*.dll" PATTERN "plugins/*" PATTERN "platforms/*" PATTERN "styles/*" PATTERN "tls/*" PATTERN "networkinformation/*"
+        PATTERN "_CPack_Packages" EXCLUDE
+        PATTERN "CMakeFiles" EXCLUDE)
 
 # --- CPack Configuration ---
 set(CPACK_PACKAGE_NAME "${PROJECT_NAME}")
