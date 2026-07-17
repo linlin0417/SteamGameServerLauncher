@@ -48,3 +48,30 @@
 - **內容要求**：測試腳本內必須包含完整且必要的測試案例，以確保程式碼的正確性與系統穩定性。
 
 
+## git commit 訊息規範
+- 規範: AngularJS Git Commit Message Conventions
+- 格式: 
+```
+    <type>(<scope>): <subject>  
+    Body: 72-character wrapped. This should answer:
+    Body 部份是對本次 Commit 的詳細描述，可以分成多行，每一行不要超過 72 個字元。
+    說明程式碼變動的項目與原因，還有與先前行為的對比。
+    Footer: 
+        填寫任務編號(如果有的話)
+        AndBuild/NoBuild (自動版本編譯標記，原則上任何版本號更新都需要透過此設定進行編譯並發布)
+
+```
+
+- 類型（type）：
+  - feat：新增功能
+  - fix：修復問題
+  - docs：文件更新
+  - style：程式碼格式調整（不影響功能）
+  - refactor：程式碼重構（不影響功能）
+  - perf：效能優化
+  - test：新增或修改測試
+  - chore：其他雜項更新（例如建置流程、套件管理等）
+  - revert：回復先前的提交
+
+### 其他注意事項
+再提供給使用者git commit msg 時只需把換行好的msg本體提供給開發者就好，開發者會自行將其放入git commit msg中。

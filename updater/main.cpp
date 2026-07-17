@@ -1,110 +1,102 @@
-/// Updater.exe — Independent update program for SteamGameServerLauncher.
+/// Updater.exe — Independent pure C++ update program for SteamGameServerLauncher.
 ///
 /// Usage:
 ///   Updater.exe --zip <path> --target <dir> --exe <launcher.exe> --pid <pid>
 ///
 /// 1. Wait for the launcher process (--pid) to exit.
-/// 2. Extract the zip to the target directory.
+/// 2. Extract the zip using built-in Windows 10 tar.exe.
 /// 3. Re-launch the launcher executable.
 /// 4. Clean up and exit.
 
-#include <QCoreApplication>
-#include <QCommandLineParser>
-#include <QDir>
-#include <QFile>
-#include <QProcess>
-#include <QThread>
-#include <QTimer>
-#include <QTextStream>
-
-#include <cstdio>
-
-#ifdef Q_OS_WIN
 #include <windows.h>
-#endif
+#include <string>
+#include <iostream>
+#include <vector>
 
-static QTextStream sOut(stdout);
-
-static void log(const QString &msg)
+static void log(const std::string& msg)
 {
-    sOut << msg << "\n";
-    sOut.flush();
+    std::cout << msg << "\n";
 }
 
-/// Wait for a process to exit (Windows-specific).
-static bool waitForProcessExit(qint64 pid, int timeoutMs = 30000)
+/// Wait for a process to exit.
+static bool waitForProcessExit(DWORD pid, DWORD timeoutMs = 30000)
 {
-#ifdef Q_OS_WIN
-    HANDLE hProcess = OpenProcess(SYNCHRONIZE, FALSE, static_cast<DWORD>(pid));
+    HANDLE hProcess = OpenProcess(SYNCHRONIZE, FALSE, pid);
     if (hProcess == NULL) {
-        // Process might have already exited.
-        return true;
+        return true; // Process likely already exited
     }
-    DWORD result = WaitForSingleObject(hProcess, static_cast<DWORD>(timeoutMs));
+    DWORD result = WaitForSingleObject(hProcess, timeoutMs);
     CloseHandle(hProcess);
     return result == WAIT_OBJECT_0;
-#else
-    // Simple poll fallback for non-Windows
-    Q_UNUSED(pid)
-    QThread::msleep(timeoutMs > 3000 ? 3000 : timeoutMs);
-    return true;
-#endif
 }
 
-/// Extract a zip file using PowerShell.
-static bool extractZip(const QString &zipPath, const QString &destDir)
+/// Run a command and wait for it to finish.
+static bool runCommand(const std::string& cmdLine)
 {
-    QProcess ps;
-    const QString cmd = QStringLiteral(
-        "Expand-Archive -Path '%1' -DestinationPath '%2' -Force")
-        .arg(QDir::toNativeSeparators(zipPath),
-             QDir::toNativeSeparators(destDir));
+    STARTUPINFOA si;
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&si, sizeof(si));
+    si.cb = sizeof(si);
+    ZeroMemory(&pi, sizeof(pi));
 
-    ps.start("powershell",
-             QStringList() << "-NoProfile" << "-Command" << cmd);
+    // CreateProcess requires a mutable string buffer
+    std::vector<char> cmdBuffer(cmdLine.begin(), cmdLine.end());
+    cmdBuffer.push_back('\0');
 
-    if (!ps.waitForFinished(120000)) {  // 2 min timeout
-        log(QStringLiteral("ERROR: Extraction timed out."));
+    if (!CreateProcessA(NULL, cmdBuffer.data(), NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
         return false;
     }
-    return ps.exitCode() == 0;
+
+    WaitForSingleObject(pi.hProcess, 120000); // 2 minute timeout
+    
+    DWORD exitCode;
+    GetExitCodeProcess(pi.hProcess, &exitCode);
+    
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+
+    return exitCode == 0;
+}
+
+/// Extract zip using Windows 10 built-in tar
+static bool extractZip(const std::string& zipPath, const std::string& targetDir)
+{
+    // tar -xf "zipPath" -C "targetDir"
+    std::string cmd = "tar -xf \"" + zipPath + "\" -C \"" + targetDir + "\"";
+    return runCommand(cmd);
 }
 
 int main(int argc, char *argv[])
 {
-    QCoreApplication app(argc, argv);
-    app.setApplicationName("SteamGameServerLauncher Updater");
+    std::string zipPath;
+    std::string targetDir;
+    std::string exePath;
+    DWORD pid = 0;
 
-    QCommandLineParser parser;
-    parser.setApplicationDescription("Updates the SteamGameServerLauncher.");
-    parser.addHelpOption();
+    // Parse arguments
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--zip" && i + 1 < argc) {
+            zipPath = argv[++i];
+        } else if (arg == "--target" && i + 1 < argc) {
+            targetDir = argv[++i];
+        } else if (arg == "--exe" && i + 1 < argc) {
+            exePath = argv[++i];
+        } else if (arg == "--pid" && i + 1 < argc) {
+            pid = std::stoul(argv[++i]);
+        }
+    }
 
-    QCommandLineOption zipOpt("zip", "Path to the update zip.", "path");
-    QCommandLineOption targetOpt("target", "Target installation directory.", "dir");
-    QCommandLineOption exeOpt("exe", "Launcher executable to restart.", "path");
-    QCommandLineOption pidOpt("pid", "PID of the launcher to wait for.", "pid");
-
-    parser.addOption(zipOpt);
-    parser.addOption(targetOpt);
-    parser.addOption(exeOpt);
-    parser.addOption(pidOpt);
-    parser.process(app);
-
-    const QString zipPath   = parser.value(zipOpt);
-    const QString targetDir = parser.value(targetOpt);
-    const QString exePath   = parser.value(exeOpt);
-    const qint64  pid       = parser.value(pidOpt).toLongLong();
-
-    if (zipPath.isEmpty() || targetDir.isEmpty() || exePath.isEmpty()) {
-        log("ERROR: Missing required arguments. Use --help for usage.");
+    if (zipPath.empty() || targetDir.empty() || exePath.empty()) {
+        log("ERROR: Missing required arguments.");
         return 1;
     }
 
-    log(QStringLiteral("=== SteamGameServerLauncher Updater ==="));
-    log(QStringLiteral("  Zip:    %1").arg(zipPath));
-    log(QStringLiteral("  Target: %1").arg(targetDir));
-    log(QStringLiteral("  Exe:    %1").arg(exePath));
-    log(QStringLiteral("  PID:    %1").arg(pid));
+    log("=== SteamGameServerLauncher Updater ===");
+    log("  Zip:    " + zipPath);
+    log("  Target: " + targetDir);
+    log("  Exe:    " + exePath);
+    log("  PID:    " + std::to_string(pid));
 
     // Step 1: Wait for launcher to exit
     if (pid > 0) {
@@ -112,31 +104,43 @@ int main(int argc, char *argv[])
         if (!waitForProcessExit(pid)) {
             log("WARNING: Timed out waiting for launcher. Proceeding anyway.");
         }
-        // Extra safety delay
-        QThread::msleep(1000);
+        Sleep(1000); // Extra safety delay
     } else {
-        QThread::msleep(2000);
+        Sleep(2000);
     }
 
     // Step 2: Extract update
     log("Extracting update...");
     if (!extractZip(zipPath, targetDir)) {
-        log("ERROR: Failed to extract update package.");
+        log("ERROR: Failed to extract update package using tar.exe.");
         return 2;
     }
     log("Extraction complete.");
 
     // Step 3: Clean up zip
-    QFile::remove(zipPath);
+    DeleteFileA(zipPath.c_str());
     log("Cleaned up update package.");
 
     // Step 4: Restart launcher
-    log(QStringLiteral("Restarting: %1").arg(exePath));
-    bool started = QProcess::startDetached(exePath, {}, targetDir);
-    if (!started) {
+    log("Restarting: " + exePath);
+    std::string launchCmd = "\"" + exePath + "\"";
+    
+    STARTUPINFOA si;
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&si, sizeof(si));
+    si.cb = sizeof(si);
+    ZeroMemory(&pi, sizeof(pi));
+
+    std::vector<char> cmdBuffer(launchCmd.begin(), launchCmd.end());
+    cmdBuffer.push_back('\0');
+
+    if (!CreateProcessA(NULL, cmdBuffer.data(), NULL, NULL, FALSE, 0, NULL, targetDir.c_str(), &si, &pi)) {
         log("ERROR: Failed to restart launcher.");
         return 3;
     }
+
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
 
     log("Update complete. Exiting updater.");
     return 0;

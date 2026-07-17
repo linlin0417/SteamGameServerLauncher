@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(SteamGameServerLauncher VERSION 1.0.0 LANGUAGES CXX)
+project(SteamGameServerLauncher VERSION 1.0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -51,7 +51,8 @@ add_executable(Updater
     updater/main.cpp
 )
 
-target_link_libraries(Updater PRIVATE Qt${QT_VERSION_MAJOR}::Core)
+# No Qt dependencies for Updater so it doesn't lock Qt DLLs
+# target_link_libraries(Updater ...)
 
 target_compile_definitions(Updater PRIVATE
     APP_VERSION="${PROJECT_VERSION}"
@@ -69,11 +70,7 @@ if(WINDEPLOYQT_EXECUTABLE AND WIN32)
         COMMAND "${WINDEPLOYQT_EXECUTABLE}" --no-translations --compiler-runtime --dir "$<TARGET_FILE_DIR:SteamGameServerLauncher>" "$<TARGET_FILE:SteamGameServerLauncher>"
         COMMENT "Running windeployqt on SteamGameServerLauncher..."
     )
-    # Run windeployqt on Updater
-    add_custom_command(TARGET Updater POST_BUILD
-        COMMAND "${WINDEPLOYQT_EXECUTABLE}" --no-translations --compiler-runtime --dir "$<TARGET_FILE_DIR:Updater>" "$<TARGET_FILE:Updater>"
-        COMMENT "Running windeployqt on Updater..."
-    )
+    # No windeployqt needed for Updater anymore since it is pure C++
 endif()
 
 # --- Installation ---
@@ -97,6 +94,10 @@ if(WIN32)
     
     # Shortcut for main executable
     set(CPACK_PACKAGE_EXECUTABLES "SteamGameServerLauncher" "Steam Game Server Launcher")
+
+    # Important: Do not nest contents in a top-level directory in the ZIP file
+    # so the updater can directly extract over the existing installation
+    set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY OFF)
 endif()
 
 include(CPack)
