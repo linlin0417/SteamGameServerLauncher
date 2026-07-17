@@ -34,3 +34,5 @@ qrc_*
 steamcmd/
 servers/
 config/launcher_settings.json
+.antigravity/GEMINI.md
+.agent/
