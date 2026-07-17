@@ -127,9 +127,12 @@ MainWindow::MainWindow(QWidget *parent)
         m_pendingZipPath = path;
         appendLog(tr("[Updater] Download complete: %1").arg(path));
         m_updateStatusLabel->setText(
-            tr("<span style='color:#66c0f4;'>Download complete. Ready to apply.</span>"));
-        m_btnDownloadUpdate->setText(tr("Apply Update && Restart"));
-        m_btnDownloadUpdate->setEnabled(true);
+            tr("<span style='color:#66c0f4;'>Download complete. Applying update...</span>"));
+        m_btnDownloadUpdate->setText(tr("Applying Update..."));
+        m_btnDownloadUpdate->setEnabled(false);
+        
+        // 自動套用更新並重新啟動
+        m_updater->applyUpdate(path);
     });
 
     connect(m_updater, &GithubUpdater::updateError,

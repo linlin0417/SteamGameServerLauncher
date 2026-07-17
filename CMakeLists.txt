@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(SteamGameServerLauncher VERSION 1.0.3 LANGUAGES CXX)
+project(SteamGameServerLauncher VERSION 1.0.4 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -47,12 +47,12 @@ target_compile_definitions(SteamGameServerLauncher PRIVATE
 )
 
 # --- Updater ---
-add_executable(Updater
+add_executable(Updater WIN32
     updater/main.cpp
+    updater/miniz.c
 )
 
-# No Qt dependencies for Updater so it doesn't lock Qt DLLs
-# target_link_libraries(Updater ...)
+target_link_libraries(Updater PRIVATE Qt${QT_VERSION_MAJOR}::Core)
 
 target_compile_definitions(Updater PRIVATE
     APP_VERSION="${PROJECT_VERSION}"
