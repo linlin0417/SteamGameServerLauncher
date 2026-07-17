@@ -98,7 +98,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_updater, &GithubUpdater::updateAvailable,
             this, [this](const QString &ver, const QString &url, const QString &notes) {
         m_updateStatusLabel->setText(
-            tr("<span style='color:#e94560;'>New version available: <b>%1</b></span>").arg(ver));
+            tr("<span style='color:#66c0f4;'>New version available: <b>%1</b></span>").arg(ver));
         m_pendingDownloadUrl = url;
         m_btnDownloadUpdate->setEnabled(!url.isEmpty());
         m_btnCheckUpdate->setEnabled(true);
@@ -110,7 +110,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_updater, &GithubUpdater::noUpdateAvailable,
             this, [this]() {
         m_updateStatusLabel->setText(
-            tr("<span style='color:#4ecca3;'>You are up to date.</span>"));
+            tr("<span style='color:#c7d5e0;'>You are up to date.</span>"));
         m_btnCheckUpdate->setEnabled(true);
     });
 
@@ -127,7 +127,7 @@ MainWindow::MainWindow(QWidget *parent)
         m_pendingZipPath = path;
         appendLog(tr("[Updater] Download complete: %1").arg(path));
         m_updateStatusLabel->setText(
-            tr("<span style='color:#4ecca3;'>Download complete. Ready to apply.</span>"));
+            tr("<span style='color:#66c0f4;'>Download complete. Ready to apply.</span>"));
         m_btnDownloadUpdate->setText(tr("Apply Update && Restart"));
         m_btnDownloadUpdate->setEnabled(true);
     });
@@ -135,7 +135,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_updater, &GithubUpdater::updateError,
             this, [this](const QString &err) {
         m_updateStatusLabel->setText(
-            tr("<span style='color:#e94560;'>Error: %1</span>").arg(err));
+            tr("<span style='color:#eb4b4b;'>Error: %1</span>").arg(err));
         m_btnCheckUpdate->setEnabled(true);
         m_btnDownloadUpdate->setEnabled(false);
     });
@@ -156,63 +156,63 @@ void MainWindow::applyDarkTheme()
     const QString style = QStringLiteral(R"(
         /* === Global === */
         QMainWindow, QWidget {
-            background-color: #1a1a2e;
-            color: #e0e0e0;
+            background-color: #171a21; /* Steam main background */
+            color: #c7d5e0; /* Steam text color */
             font-family: "Segoe UI", "Microsoft JhengHei", sans-serif;
             font-size: 10pt;
         }
 
         /* === Tab Widget === */
         QTabWidget::pane {
-            border: 1px solid #16213e;
-            background-color: #1a1a2e;
+            border: 1px solid #1b2838;
+            background-color: #171a21;
             border-radius: 4px;
         }
         QTabBar::tab {
-            background-color: #16213e;
-            color: #8a8a8a;
-            padding: 10px 24px;
+            background-color: transparent;
+            color: #8f98a0;
+            padding: 12px 24px;
             margin-right: 2px;
-            border-top-left-radius: 6px;
-            border-top-right-radius: 6px;
+            border-bottom: 3px solid transparent;
             font-weight: bold;
+            font-size: 11pt;
         }
         QTabBar::tab:selected {
-            background-color: #0f3460;
-            color: #e94560;
+            color: #ffffff;
+            border-bottom: 3px solid #66c0f4; /* Steam Blue */
         }
         QTabBar::tab:hover:!selected {
-            background-color: #1a2744;
-            color: #c0c0c0;
+            color: #c7d5e0;
         }
 
         /* === Buttons === */
         QPushButton {
-            background-color: #0f3460;
-            color: #e0e0e0;
-            border: none;
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #475a6f, stop:1 #2d3b4b);
+            color: #c7d5e0;
+            border: 1px solid #1b2838;
             padding: 10px 20px;
-            border-radius: 5px;
+            border-radius: 3px;
             font-weight: bold;
             min-width: 100px;
         }
         QPushButton:hover {
-            background-color: #e94560;
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #5c748c, stop:1 #3e4f63);
             color: #ffffff;
         }
         QPushButton:pressed {
-            background-color: #c73e54;
+            background: #2a3746;
         }
         QPushButton:disabled {
-            background-color: #2a2a4a;
+            background: #2a2f35;
             color: #555555;
+            border: none;
         }
 
         /* === Log / TextEdit === */
         QTextEdit {
-            background-color: #0d1117;
-            color: #58a6ff;
-            border: 1px solid #16213e;
+            background-color: #101214; /* Darker console background */
+            color: #a0b1c0;
+            border: 1px solid #202d39;
             border-radius: 4px;
             font-family: "Cascadia Code", "Consolas", monospace;
             font-size: 9pt;
@@ -222,67 +222,69 @@ void MainWindow::applyDarkTheme()
 
         /* === Inputs === */
         QLineEdit, QSpinBox {
-            background-color: #16213e;
-            color: #e0e0e0;
-            border: 1px solid #0f3460;
+            background-color: #101214;
+            color: #c7d5e0;
+            border: 1px solid #202d39;
             padding: 8px;
-            border-radius: 4px;
+            border-radius: 3px;
             font-size: 10pt;
         }
         QLineEdit:focus, QSpinBox:focus {
-            border: 1px solid #e94560;
+            border: 1px solid #66c0f4;
         }
 
         /* === Labels === */
         QLabel {
-            color: #e0e0e0;
+            color: #c7d5e0;
         }
 
         /* === GroupBox === */
         QGroupBox {
-            border: 1px solid #0f3460;
-            border-radius: 6px;
-            margin-top: 12px;
-            padding-top: 16px;
+            border: 1px solid #202d39;
+            border-radius: 4px;
+            margin-top: 14px;
+            padding-top: 18px;
             font-weight: bold;
-            color: #e94560;
+            color: #66c0f4;
+            background-color: #1b2838; /* Slightly lighter inner panel */
         }
         QGroupBox::title {
             subcontrol-origin: margin;
             left: 14px;
             padding: 0 6px;
+            background-color: transparent;
         }
 
         /* === Progress Bar === */
         QProgressBar {
-            border: 1px solid #16213e;
-            border-radius: 4px;
+            border: 1px solid #202d39;
+            border-radius: 3px;
             text-align: center;
-            background-color: #0d1117;
-            color: #e0e0e0;
+            background-color: #101214;
+            color: #ffffff;
             height: 20px;
         }
         QProgressBar::chunk {
             background: qlineargradient(
                 x1:0, y1:0, x2:1, y2:0,
-                stop:0 #0f3460, stop:1 #e94560
+                stop:0 #66c0f4, stop:1 #2a475e
             );
-            border-radius: 3px;
+            border-radius: 2px;
         }
 
         /* === ScrollBar === */
         QScrollBar:vertical {
-            background: #0d1117;
-            width: 10px;
-            border-radius: 5px;
+            background: #101214;
+            width: 12px;
+            border-radius: 6px;
         }
         QScrollBar::handle:vertical {
-            background: #0f3460;
+            background: #2a3746;
             min-height: 30px;
-            border-radius: 5px;
+            border-radius: 6px;
         }
         QScrollBar::handle:vertical:hover {
-            background: #e94560;
+            background: #3e4f63;
         }
         QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
             height: 0px;
@@ -319,13 +321,13 @@ QWidget *MainWindow::createControlTab()
     m_btnStop = new QPushButton(tr("■  停止伺服器"));
 
     m_btnStart->setStyleSheet(
-        "QPushButton { background-color: #1b7a3d; }"
-        "QPushButton:hover { background-color: #4ecca3; color: #000; }"
-        "QPushButton:disabled { background-color: #2a2a4a; color: #555; }");
+        "QPushButton { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #79a01b, stop:1 #5c7e10); color: #d2efa9; border: 1px solid #455e09; }"
+        "QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #8ab41f, stop:1 #6b9313); color: #ffffff; }"
+        "QPushButton:disabled { background: #2a2f35; color: #555; border: none; }");
     m_btnStop->setStyleSheet(
-        "QPushButton { background-color: #7a1b1b; }"
-        "QPushButton:hover { background-color: #e94560; }"
-        "QPushButton:disabled { background-color: #2a2a4a; color: #555; }");
+        "QPushButton { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #3c2a2a, stop:1 #2e1c1c); color: #e8a7a7; border: 1px solid #281515; }"
+        "QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #4f3636, stop:1 #3e2626); color: #ffffff; }"
+        "QPushButton:disabled { background: #2a2f35; color: #555; border: none; }");
 
     btnRow->addWidget(m_btnInstallCmd);
     btnRow->addWidget(m_btnUpdateServer);
@@ -479,7 +481,7 @@ QWidget *MainWindow::createAboutTab()
 
     // App name
     QLabel *titleLabel = new QLabel(
-        QStringLiteral("<h1 style='color:#e94560;'>%1</h1>").arg(AppConfig::AppName));
+        QStringLiteral("<h1 style='color:#ffffff;'>%1</h1>").arg(AppConfig::AppName));
     layout->addWidget(titleLabel);
 
     m_versionLabel = new QLabel(
@@ -511,8 +513,8 @@ QWidget *MainWindow::createAboutTab()
     updateLayout->addWidget(m_updateProgress);
 
     QHBoxLayout *updateBtnRow = new QHBoxLayout;
-    m_btnCheckUpdate = new QPushButton(tr("🔍  Check for Updates"));
-    m_btnDownloadUpdate = new QPushButton(tr("⬇  Download Update"));
+    m_btnCheckUpdate = new QPushButton(tr("Check for Updates"));
+    m_btnDownloadUpdate = new QPushButton(tr("Download Update"));
     m_btnDownloadUpdate->setEnabled(false);
     updateBtnRow->addWidget(m_btnCheckUpdate);
     updateBtnRow->addWidget(m_btnDownloadUpdate);
@@ -574,7 +576,7 @@ void MainWindow::onStartServer()
     const QString exePath = m_editServerExePath->text().trimmed();
 
     if (exePath.isEmpty()) {
-        appendLog(tr("⚠ Please set the server executable path in the Settings tab."));
+        appendLog(tr("Please set the server executable path in the Settings tab."));
         return;
     }
 
@@ -652,19 +654,19 @@ void MainWindow::updateServerStateUI()
         break;
     case S::Starting:
         m_statusLabel->setText(tr("●  啟動中..."));
-        m_statusLabel->setStyleSheet("font-size:14pt; font-weight:bold; color:#f0a500;");
+        m_statusLabel->setStyleSheet("font-size:14pt; font-weight:bold; color:#66c0f4;");
         m_btnStart->setEnabled(false);
         m_btnStop->setEnabled(true);
         break;
     case S::Running:
         m_statusLabel->setText(tr("●  運行中"));
-        m_statusLabel->setStyleSheet("font-size:14pt; font-weight:bold; color:#4ecca3;");
+        m_statusLabel->setStyleSheet("font-size:14pt; font-weight:bold; color:#8ab41f;");
         m_btnStart->setEnabled(false);
         m_btnStop->setEnabled(true);
         break;
     case S::Stopping:
         m_statusLabel->setText(tr("●  停止中..."));
-        m_statusLabel->setStyleSheet("font-size:14pt; font-weight:bold; color:#f0a500;");
+        m_statusLabel->setStyleSheet("font-size:14pt; font-weight:bold; color:#eb4b4b;");
         m_btnStart->setEnabled(false);
         m_btnStop->setEnabled(false);
         break;
