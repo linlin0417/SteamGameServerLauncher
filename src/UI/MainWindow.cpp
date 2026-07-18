@@ -95,7 +95,25 @@ MainWindow::MainWindow(QWidget *parent)
             this, [this](const QString &op) {
         m_btnInstallCmd->setEnabled(false);
         m_btnUpdateServer->setEnabled(false);
+        m_btnCheckServerUpdate->setEnabled(false);
         appendLog(tr("[RUN] %1").arg(op));
+    });
+
+    connect(m_steamCmd, &SteamCmdManager::updateCheckFinished,
+            this, [this](bool hasUpdate, const QString &localVer, const QString &onlineVer, const QString &msg) {
+        m_btnCheckServerUpdate->setEnabled(true);
+        m_btnInstallCmd->setEnabled(true);
+        m_btnUpdateServer->setEnabled(true);
+        
+        if (hasUpdate) {
+            appendLog(QStringLiteral("[SteamCMD] [!] 有新版本可用！本地: %1, 線上: %2").arg(localVer, onlineVer));
+            QMessageBox::information(this, tr("更新可用"),
+                tr("發現新版本！\n\n目前本地版本: %1\n最新線上版本: %2\n\n建議您點擊「更新伺服器」來進行更新。").arg(localVer, onlineVer));
+        } else {
+            appendLog(QStringLiteral("[SteamCMD] [V] 伺服器已是最新版本 (版本號: %1)。").arg(localVer));
+            QMessageBox::information(this, tr("已是最新版"),
+                tr("您的伺服器已經是最新版本！\n\n版本號: %1").arg(localVer));
+        }
     });
 
     // Server state changes
@@ -335,6 +353,7 @@ QWidget *MainWindow::createControlTab()
     QHBoxLayout *btnRow = new QHBoxLayout;
     m_btnInstallCmd = new QPushButton(tr("安裝 SteamCMD"));
     m_btnUpdateServer = new QPushButton(tr("更新伺服器"));
+    m_btnCheckServerUpdate = new QPushButton(tr("檢查更新"));
     m_btnStart = new QPushButton(tr("啟動伺服器"));
     m_btnStop = new QPushButton(tr("停止伺服器"));
 
@@ -349,6 +368,7 @@ QWidget *MainWindow::createControlTab()
 
     btnRow->addWidget(m_btnInstallCmd);
     btnRow->addWidget(m_btnUpdateServer);
+    btnRow->addWidget(m_btnCheckServerUpdate);
     btnRow->addStretch();
     btnRow->addWidget(m_btnStart);
     btnRow->addWidget(m_btnStop);
@@ -368,6 +388,7 @@ QWidget *MainWindow::createControlTab()
     // Connections
     connect(m_btnInstallCmd,   &QPushButton::clicked, this, &MainWindow::onInstallSteamCmd);
     connect(m_btnUpdateServer, &QPushButton::clicked, this, &MainWindow::onUpdateServer);
+    connect(m_btnCheckServerUpdate, &QPushButton::clicked, this, &MainWindow::onCheckServerUpdate);
     connect(m_btnStart,        &QPushButton::clicked, this, &MainWindow::onStartServer);
     connect(m_btnStop,         &QPushButton::clicked, this, &MainWindow::onStopServer);
 
@@ -583,6 +604,19 @@ void MainWindow::onUpdateServer()
     const QString installDir = serverInstallDir();
     appendLog(tr("--- Updating Icarus Server (App %1) ---").arg(AppConfig::IcarusAppId));
     m_steamCmd->installOrUpdateServer(AppConfig::IcarusAppId, installDir);
+}
+
+void MainWindow::onCheckServerUpdate()
+{
+    m_btnCheckServerUpdate->setEnabled(false);
+    saveSettingsFromUI();
+    
+    const QString installDir = serverInstallDir();
+    // ACF 檔在使用 force_install_dir 時，通常會位於安裝目錄下的 steamapps 資料夾
+    const QString acfPath = installDir + "/steamapps/appmanifest_" + AppConfig::IcarusAppId + ".acf";
+    
+    appendLog(tr("--- 檢查 Icarus 伺服器更新 (App %1) ---").arg(AppConfig::IcarusAppId));
+    m_steamCmd->checkServerUpdate(AppConfig::IcarusAppId, acfPath);
 }
 
 void MainWindow::onStartServer()

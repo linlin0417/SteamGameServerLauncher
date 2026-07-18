@@ -46,6 +46,7 @@ private:
     // --- Actions ---
     void onInstallSteamCmd();
     void onUpdateServer();
+    void onCheckServerUpdate();
     void onStartServer();
     void onStopServer();
     void onCheckForUpdate();
@@ -62,6 +63,7 @@ private:
     QLabel       *m_statusLabel     = nullptr;
     QPushButton  *m_btnInstallCmd   = nullptr;
     QPushButton  *m_btnUpdateServer = nullptr;
+    QPushButton  *m_btnCheckServerUpdate = nullptr;
     QPushButton  *m_btnStart        = nullptr;
     QPushButton  *m_btnStop         = nullptr;
     QTextEdit    *m_logOutput       = nullptr;

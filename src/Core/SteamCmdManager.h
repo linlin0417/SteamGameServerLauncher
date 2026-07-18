@@ -33,6 +33,9 @@ public:
     /// Validate server file integrity via SteamCMD.
     void validateServer(const QString &appId, const QString &installDir);
 
+    /// Check if a server update is available by comparing local and online BuildIDs.
+    void checkServerUpdate(const QString &appId, const QString &acfFilePath);
+
     /// Returns true if an operation is currently in progress.
     bool isBusy() const { return m_busy; }
 
@@ -40,6 +43,7 @@ signals:
     void logMessage(const QString &message);
     void operationStarted(const QString &operation);
     void operationFinished(bool success, const QString &message);
+    void updateCheckFinished(bool updateAvailable, const QString &localBuildId, const QString &onlineBuildId, const QString &message);
 
 private slots:
     void onProcessReadyRead();
@@ -54,4 +58,7 @@ private:
     QNetworkAccessManager *m_networkManager = nullptr;
     bool m_busy = false;
     QString m_currentOperation;
+    bool m_isCheckingUpdate = false;
+    QString m_outputCache;
+    QString m_localBuildIdCache;
 };

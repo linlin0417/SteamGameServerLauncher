@@ -8,6 +8,7 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QProcess>
+#include <QRegularExpression>
 #include <QStandardPaths>
 
 static const QString STEAMCMD_URL =
@@ -140,6 +141,7 @@ void SteamCmdManager::installOrUpdateServer(const QString &appId,
     // Ensure the server install directory exists
     QDir().mkpath(installDir);
 
+    m_isCheckingUpdate = false;
     m_currentOperation = tr("Installing/Updating server (App %1)").arg(appId);
     emit operationStarted(m_currentOperation);
     emit logMessage(tr("[SteamCMD] Starting update for App %1 -> %2")
@@ -158,6 +160,53 @@ void SteamCmdManager::validateServer(const QString &appId,
                                      const QString &installDir)
 {
     installOrUpdateServer(appId, installDir);  // validate flag is included
+}
+
+void SteamCmdManager::checkServerUpdate(const QString &appId, const QString &acfFilePath)
+{
+    if (m_busy) {
+        emit logMessage(tr("[SteamCMD] Another operation is in progress."));
+        return;
+    }
+
+    if (!isSteamCmdInstalled()) {
+        emit logMessage(tr("[SteamCMD] SteamCMD not found. Please install it first."));
+        emit updateCheckFinished(false, QString(), QString(), tr("SteamCMD not installed."));
+        return;
+    }
+
+    m_localBuildIdCache.clear();
+    QFile file(acfFilePath);
+    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QTextStream in(&file);
+        QRegularExpression rx(QStringLiteral(R"(\"buildid\"\s+\"(\d+)\")"));
+        while (!in.atEnd()) {
+            QString line = in.readLine().trimmed();
+            QRegularExpressionMatch match = rx.match(line);
+            if (match.hasMatch()) {
+                m_localBuildIdCache = match.captured(1);
+                break;
+            }
+        }
+    }
+
+    if (m_localBuildIdCache.isEmpty()) {
+        m_localBuildIdCache = tr("Unknown (Not Installed)");
+    }
+
+    m_isCheckingUpdate = true;
+    m_outputCache.clear();
+    m_currentOperation = tr("Checking for server updates (App %1)").arg(appId);
+    emit operationStarted(m_currentOperation);
+    emit logMessage(tr("[SteamCMD] Checking online version for App %1 ...").arg(appId));
+
+    const QStringList args = {
+        QStringLiteral("+login"), QStringLiteral("anonymous"),
+        QStringLiteral("+app_info_update"), QStringLiteral("1"),
+        QStringLiteral("+app_info_print"), appId,
+        QStringLiteral("+quit")
+    };
+    runSteamCmd(args);
 }
 
 void SteamCmdManager::runSteamCmd(const QStringList &args)
@@ -186,7 +235,11 @@ void SteamCmdManager::onProcessReadyRead()
         const QString line =
             QString::fromUtf8(m_process->readLine()).trimmed();
         if (!line.isEmpty()) {
-            emit logMessage(QStringLiteral("[SteamCMD] %1").arg(line));
+            if (m_isCheckingUpdate) {
+                m_outputCache.append(line + '\n');
+            } else {
+                emit logMessage(QStringLiteral("[SteamCMD] %1").arg(line));
+            }
         }
     }
 }
@@ -200,12 +253,70 @@ void SteamCmdManager::onProcessFinished(int exitCode,
             QString::fromUtf8(m_process->readAll()).trimmed();
         if (!remaining.isEmpty()) {
             for (const QString &line : remaining.split('\n')) {
-                emit logMessage(QStringLiteral("[SteamCMD] %1").arg(line.trimmed()));
+                if (m_isCheckingUpdate) {
+                    m_outputCache.append(line.trimmed() + '\n');
+                } else {
+                    emit logMessage(QStringLiteral("[SteamCMD] %1").arg(line.trimmed()));
+                }
             }
         }
     }
 
     m_busy = false;
+
+    if (m_isCheckingUpdate) {
+        m_isCheckingUpdate = false;
+        
+        // steamcmd checking updates may return exitCode 0 or 7 (usually 7 if it updated itself first)
+        if (status == QProcess::CrashExit) {
+            emit logMessage(tr("[SteamCMD] Update check crashed."));
+            emit updateCheckFinished(false, m_localBuildIdCache, QString(), tr("SteamCMD crashed during check."));
+            return;
+        }
+
+        QString onlineBuildId;
+        QStringList lines = m_outputCache.split('\n');
+        bool inBranches = false;
+        bool inPublic = false;
+        QRegularExpression rx(QStringLiteral(R"(\"buildid\"\s+\"(\d+)\")"));
+        
+        for (const QString &line : lines) {
+            QString trimmed = line.trimmed();
+            if (trimmed == QStringLiteral("\"branches\"")) {
+                inBranches = true;
+            } else if (inBranches && trimmed == QStringLiteral("\"public\"")) {
+                inPublic = true;
+            } else if (inPublic && trimmed.startsWith(QStringLiteral("\"buildid\""))) {
+                QRegularExpressionMatch match = rx.match(trimmed);
+                if (match.hasMatch()) {
+                    onlineBuildId = match.captured(1);
+                    break;
+                }
+            } else if (trimmed == QStringLiteral("}")) {
+                if (inPublic) {
+                    inPublic = false;
+                } else if (inBranches) {
+                    inBranches = false;
+                }
+            }
+        }
+
+        if (onlineBuildId.isEmpty()) {
+            emit logMessage(tr("[SteamCMD] Could not parse online BuildID."));
+            emit updateCheckFinished(false, m_localBuildIdCache, QString(), tr("Failed to parse online info."));
+            return;
+        }
+
+        bool hasUpdate = false;
+        if (m_localBuildIdCache != tr("Unknown (Not Installed)") && m_localBuildIdCache != onlineBuildId) {
+            hasUpdate = true;
+        } else if (m_localBuildIdCache == tr("Unknown (Not Installed)")) {
+            hasUpdate = true; // Not installed means needs update/install
+        }
+
+        emit updateCheckFinished(hasUpdate, m_localBuildIdCache, onlineBuildId, tr("Update check completed."));
+        return;
+    }
 
     if (status == QProcess::CrashExit) {
         emit logMessage(tr("[SteamCMD] Process crashed."));
