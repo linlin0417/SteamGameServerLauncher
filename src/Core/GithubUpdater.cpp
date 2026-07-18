@@ -14,6 +14,11 @@
 #include <QStandardPaths>
 #include <QVersionNumber>
 
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <shellapi.h>
+#endif
+
 GithubUpdater::GithubUpdater(const QString &owner,
                              const QString &repo,
                              const QString &currentVersion,
@@ -168,7 +173,39 @@ void GithubUpdater::applyUpdate(const QString &zipPath)
          << "--exe" << QDir::toNativeSeparators(launcherExe)
          << "--pid" << QString::number(QCoreApplication::applicationPid());
 
+#ifdef Q_OS_WIN
+    // 檢查目標目錄是否可寫，決定是否需要 UAC
+    bool needsElevation = true;
+    QFile testFile(QDir(appDir).filePath(".write_test"));
+    if (testFile.open(QIODevice::WriteOnly)) {
+        testFile.close();
+        testFile.remove();
+        needsElevation = false;
+    }
+
+    // Construct arguments string for ShellExecute
+    QString argsStr = QStringLiteral("--zip \"%1\" --target \"%2\" --exe \"%3\" --pid %4")
+                       .arg(QDir::toNativeSeparators(zipPath))
+                       .arg(QDir::toNativeSeparators(appDir))
+                       .arg(QDir::toNativeSeparators(launcherExe))
+                       .arg(QCoreApplication::applicationPid());
+
+    SHELLEXECUTEINFOW sei = { sizeof(sei) };
+    sei.fMask = SEE_MASK_DEFAULT;
+    sei.hwnd = NULL;
+    sei.lpVerb = needsElevation ? L"runas" : L"open"; // 只有權限不足時才要求 UAC
+    sei.lpFile = (LPCWSTR)updaterExe.utf16();
+    sei.lpParameters = (LPCWSTR)argsStr.utf16();
+    sei.lpDirectory = (LPCWSTR)appDir.utf16();
+    sei.nShow = SW_SHOWNORMAL;
+
+    if (!ShellExecuteExW(&sei)) {
+        emit updateError(tr("Failed to launch updater."));
+        return;
+    }
+#else
     QProcess::startDetached(updaterExe, args);
+#endif
 
     // Quit the application so the updater can replace files.
     QCoreApplication::quit();
