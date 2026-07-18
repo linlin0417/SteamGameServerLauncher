@@ -67,15 +67,23 @@ void SteamCmdManager::downloadSteamCmd()
 
         // Ensure destination directory exists
         QDir dir;
-        dir.mkpath(m_steamCmdDir);
+        if (!dir.mkpath(m_steamCmdDir)) {
+            emit logMessage(tr("[SteamCMD] Failed to create directory: %1").arg(m_steamCmdDir));
+            emit logMessage(tr("[SteamCMD] Please check folder permissions or choose a different path in Settings."));
+            m_busy = false;
+            emit operationFinished(false, tr("Failed to create SteamCMD directory (permission denied?)."));
+            return;
+        }
 
         // Save zip file
         const QString zipPath = m_steamCmdDir + "/steamcmd.zip";
         QFile zipFile(zipPath);
         if (!zipFile.open(QIODevice::WriteOnly)) {
             emit logMessage(tr("[SteamCMD] Failed to write: %1").arg(zipPath));
+            emit logMessage(tr("[SteamCMD] Reason: %1").arg(zipFile.errorString()));
+            emit logMessage(tr("[SteamCMD] Please check folder permissions or choose a different path in Settings."));
             m_busy = false;
-            emit operationFinished(false, tr("Failed to write zip file."));
+            emit operationFinished(false, tr("Failed to write zip file: %1").arg(zipFile.errorString()));
             return;
         }
         zipFile.write(reply->readAll());

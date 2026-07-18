@@ -8,7 +8,9 @@
 #include <QCloseEvent>
 #include <QCoreApplication>
 #include <QDir>
+#include <QStandardPaths>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
@@ -42,11 +44,21 @@ MainWindow::MainWindow(QWidget *parent)
     m_updater   = new GithubUpdater(
         AppConfig::GithubOwner, AppConfig::GithubRepo, APP_VERSION, this);
 
+    // Migrate settings from the old location (next to exe) to the new writable data dir
+    const QString oldSettingsPath =
+        QCoreApplication::applicationDirPath() + "/" + AppConfig::ConfigFileName;
+    const QString newSettingsPath = settingsFilePath();
+    if (oldSettingsPath != newSettingsPath
+        && QFileInfo::exists(oldSettingsPath) && !QFileInfo::exists(newSettingsPath)) {
+        QDir().mkpath(QFileInfo(newSettingsPath).absolutePath());
+        QFile::copy(oldSettingsPath, newSettingsPath);
+    }
+
     // Load settings first to get the configured paths
     const QJsonObject settings = ServerManager::loadSettings(settingsFilePath());
     QString steamPath = settings.value("steamCmdPath").toString();
     if (steamPath.isEmpty()) {
-        steamPath = QCoreApplication::applicationDirPath() + "/" + AppConfig::SteamCmdSubDir;
+        steamPath = dataRootDir() + "/" + AppConfig::SteamCmdSubDir;
     }
     m_steamCmd->setSteamCmdDir(steamPath);
 
@@ -676,9 +688,23 @@ void MainWindow::updateServerStateUI()
     }
 }
 
+QString MainWindow::dataRootDir() const
+{
+    // Use AppLocalDataLocation (e.g. C:/Users/<user>/AppData/Local/SteamGameServerLauncher)
+    // to avoid permission issues when installed under Program Files.
+    const QString appDataDir =
+        QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+    if (!appDataDir.isEmpty()) {
+        QDir().mkpath(appDataDir);
+        return appDataDir;
+    }
+    // Fallback to application directory if AppLocalDataLocation is unavailable
+    return QCoreApplication::applicationDirPath();
+}
+
 QString MainWindow::settingsFilePath() const
 {
-    return QCoreApplication::applicationDirPath() + "/" + AppConfig::ConfigFileName;
+    return dataRootDir() + "/" + AppConfig::ConfigFileName;
 }
 
 QString MainWindow::serverInstallDir() const
@@ -686,7 +712,7 @@ QString MainWindow::serverInstallDir() const
     const QJsonObject s = ServerManager::loadSettings(settingsFilePath());
     QString basePath = s.value("serverBasePath").toString();
     if (basePath.isEmpty()) {
-        basePath = QCoreApplication::applicationDirPath() + "/" + AppConfig::ServersSubDir;
+        basePath = dataRootDir() + "/" + AppConfig::ServersSubDir;
     }
     return basePath + "/icarus";
 }
@@ -725,7 +751,7 @@ void MainWindow::saveSettingsFromUI()
         // Update SteamCmdManager with new path immediately
         QString steamPath = m_editSteamCmdPath->text();
         if (steamPath.isEmpty()) {
-            steamPath = QCoreApplication::applicationDirPath() + "/" + AppConfig::SteamCmdSubDir;
+            steamPath = dataRootDir() + "/" + AppConfig::SteamCmdSubDir;
         }
         m_steamCmd->setSteamCmdDir(steamPath);
     } else {

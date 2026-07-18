@@ -37,6 +37,7 @@ private:
     void updateServerStateUI();
     void loadSettingsToUI();
     void saveSettingsFromUI();
+    QString dataRootDir() const;
     QString settingsFilePath() const;
     QString serverInstallDir() const;
     void applyDarkTheme();
