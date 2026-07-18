@@ -11,6 +11,7 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QProcess>
+#include <QStandardPaths>
 #include <QVersionNumber>
 
 GithubUpdater::GithubUpdater(const QString &owner,
@@ -128,9 +129,11 @@ void GithubUpdater::downloadUpdate(const QString &downloadUrl)
             return;
         }
 
-        // Save to a temp file next to the executable
+        // Save to a temp file to avoid permission issues in Program Files
+        const QString tempDir = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
         const QString savePath =
-            QCoreApplication::applicationDirPath() + "/update_package.zip";
+            QDir(tempDir).filePath("SteamGameServerLauncher_update_package.zip");
+        
         QFile file(savePath);
         if (!file.open(QIODevice::WriteOnly)) {
             emit updateError(tr("Cannot write to: %1").arg(savePath));
