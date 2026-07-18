@@ -41,6 +41,7 @@ private:
     QString settingsFilePath() const;
     QString serverInstallDir() const;
     void applyDarkTheme();
+    void autoDetectServerExe();
 
     // --- Actions ---
     void onInstallSteamCmd();

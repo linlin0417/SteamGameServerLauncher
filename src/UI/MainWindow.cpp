@@ -82,10 +82,13 @@ MainWindow::MainWindow(QWidget *parent)
             this, [this](bool success, const QString &msg) {
         m_btnInstallCmd->setEnabled(true);
         m_btnUpdateServer->setEnabled(true);
-        if (success)
+        if (success) {
             appendLog(tr("[OK] %1").arg(msg));
-        else
+            // 如果成功完成更新，嘗試自動偵測伺服器執行檔
+            autoDetectServerExe();
+        } else {
             appendLog(tr("[FAIL] %1").arg(msg));
+        }
     });
 
     connect(m_steamCmd, &SteamCmdManager::operationStarted,
@@ -770,5 +773,29 @@ void MainWindow::closeEvent(QCloseEvent *event)
         }
     } else {
         event->accept();
+    }
+}
+
+void MainWindow::autoDetectServerExe()
+{
+    if (!m_editServerExePath->text().trimmed().isEmpty())
+        return; // 已經有設定了，不自動覆蓋
+
+    const QString installDir = serverInstallDir();
+    // 常見的 Icarus 伺服器執行檔相對路徑
+    QStringList candidates = {
+        "Icarus/Binaries/Win64/IcarusServer-Win64-Shipping.exe",
+        "IcarusServer.exe",
+        "icarus/Binaries/Win64/IcarusServer-Win64-Shipping.exe"
+    };
+
+    for (const QString &candidate : candidates) {
+        QString fullPath = QDir(installDir).filePath(candidate);
+        if (QFileInfo::exists(fullPath)) {
+            m_editServerExePath->setText(QDir::toNativeSeparators(fullPath));
+            saveSettingsFromUI();
+            appendLog(tr("[Info] 自動偵測到伺服器執行檔: %1").arg(fullPath));
+            break;
+        }
     }
 }
