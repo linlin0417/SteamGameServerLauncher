@@ -35,4 +35,5 @@ steamcmd/
 servers/
 config/launcher_settings.json
 .antigravity/GEMINI.md
-.agent/
+.agents/
+.agents/AGENTS.md

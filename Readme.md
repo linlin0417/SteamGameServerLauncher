@@ -16,3 +16,25 @@
 [SteamCMD] Failed to write: E:/Program Files/SteamGameServerLauncher/bin/steamcmd/steamcmd.zip
 ✘ Failed to write zip file.
 ```
+
+
+
+
+
+## 許可證
+本專案原始碼採用 Apache License 2.0 授權。
+
+- 完整授權條款請參閱專案根目錄的 `LICENSE`。
+- Copyright (c) 2026 Yukimura Saya
+
+### Qt 相關授權說明
+本專案使用 Qt。Qt 與其模組、外掛及相關函式庫不受本專案 Apache-2.0
+條款覆蓋，仍各自適用其原始授權條款（例如 LGPL、GPL 或商業授權）。
+
+當你重新散布本專案的執行檔或安裝包時，請自行確認並遵循所使用 Qt
+版本與模組的授權義務，包含但不限於：
+
+- 保留原始授權與版權聲明
+- 提供相應的授權文件與第三方聲明
+- 若適用 LGPL，遵守動態連結、可替換函式庫與必要的重連結要求
+
