@@ -184,7 +184,7 @@ void SteamCmdManager::onProcessReadyRead()
 {
     while (m_process->canReadLine()) {
         const QString line =
-            QString::fromLocal8Bit(m_process->readLine()).trimmed();
+            QString::fromUtf8(m_process->readLine()).trimmed();
         if (!line.isEmpty()) {
             emit logMessage(QStringLiteral("[SteamCMD] %1").arg(line));
         }
@@ -197,7 +197,7 @@ void SteamCmdManager::onProcessFinished(int exitCode,
     // Read any remaining output
     if (m_process->bytesAvailable() > 0) {
         const QString remaining =
-            QString::fromLocal8Bit(m_process->readAll()).trimmed();
+            QString::fromUtf8(m_process->readAll()).trimmed();
         if (!remaining.isEmpty()) {
             for (const QString &line : remaining.split('\n')) {
                 emit logMessage(QStringLiteral("[SteamCMD] %1").arg(line.trimmed()));
