@@ -83,16 +83,16 @@ MainWindow::MainWindow(QWidget *parent)
         m_btnInstallCmd->setEnabled(true);
         m_btnUpdateServer->setEnabled(true);
         if (success)
-            appendLog(tr("✔ %1").arg(msg));
+            appendLog(tr("[OK] %1").arg(msg));
         else
-            appendLog(tr("✘ %1").arg(msg));
+            appendLog(tr("[FAIL] %1").arg(msg));
     });
 
     connect(m_steamCmd, &SteamCmdManager::operationStarted,
             this, [this](const QString &op) {
         m_btnInstallCmd->setEnabled(false);
         m_btnUpdateServer->setEnabled(false);
-        appendLog(tr("▶ %1").arg(op));
+        appendLog(tr("[RUN] %1").arg(op));
     });
 
     // Server state changes
@@ -103,7 +103,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(m_serverMgr, &ServerManager::serverCrashed,
             this, [this](int code) {
-        appendLog(tr("⚠ Server crashed with exit code %1").arg(code));
+        appendLog(tr("[WARN] Server crashed with exit code %1").arg(code));
     });
 
     // GitHub updater signals
@@ -321,7 +321,7 @@ QWidget *MainWindow::createControlTab()
 
     // Status bar
     QHBoxLayout *statusRow = new QHBoxLayout;
-    m_statusLabel = new QLabel(tr("● 已停止"));
+    m_statusLabel = new QLabel(tr("已停止"));
     m_statusLabel->setStyleSheet(
         "font-size: 14pt; font-weight: bold; color: #888;");
     statusRow->addWidget(m_statusLabel);
@@ -332,8 +332,8 @@ QWidget *MainWindow::createControlTab()
     QHBoxLayout *btnRow = new QHBoxLayout;
     m_btnInstallCmd = new QPushButton(tr("安裝 SteamCMD"));
     m_btnUpdateServer = new QPushButton(tr("更新伺服器"));
-    m_btnStart = new QPushButton(tr("▶  啟動伺服器"));
-    m_btnStop = new QPushButton(tr("■  停止伺服器"));
+    m_btnStart = new QPushButton(tr("啟動伺服器"));
+    m_btnStop = new QPushButton(tr("停止伺服器"));
 
     m_btnStart->setStyleSheet(
         "QPushButton { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #79a01b, stop:1 #5c7e10); color: #d2efa9; border: 1px solid #455e09; }"
@@ -462,8 +462,8 @@ QWidget *MainWindow::createSettingsTab()
 
     // Buttons
     QHBoxLayout *btnRow = new QHBoxLayout;
-    QPushButton *btnSave = new QPushButton(tr("💾  儲存設定"));
-    QPushButton *btnReset = new QPushButton(tr("↺  重置為預設"));
+    QPushButton *btnSave = new QPushButton(tr("儲存設定"));
+    QPushButton *btnReset = new QPushButton(tr("重置為預設"));
     btnRow->addStretch();
     btnRow->addWidget(btnSave);
     btnRow->addWidget(btnReset);
@@ -610,7 +610,7 @@ void MainWindow::onCheckForUpdate()
     m_updateStatusLabel->setText(tr("Checking..."));
     m_pendingDownloadUrl.clear();
     m_pendingZipPath.clear();
-    m_btnDownloadUpdate->setText(tr("⬇  Download Update"));
+    m_btnDownloadUpdate->setText(tr("Download Update"));
     m_btnDownloadUpdate->setEnabled(false);
     m_updateProgress->setVisible(false);
     m_updateProgress->setValue(0);
@@ -662,25 +662,25 @@ void MainWindow::updateServerStateUI()
     using S = ServerManager::ServerState;
     switch (m_serverMgr->state()) {
     case S::Stopped:
-        m_statusLabel->setText(tr("●  已停止"));
+        m_statusLabel->setText(tr("已停止"));
         m_statusLabel->setStyleSheet("font-size:14pt; font-weight:bold; color:#888;");
         m_btnStart->setEnabled(true);
         m_btnStop->setEnabled(false);
         break;
     case S::Starting:
-        m_statusLabel->setText(tr("●  啟動中..."));
+        m_statusLabel->setText(tr("啟動中..."));
         m_statusLabel->setStyleSheet("font-size:14pt; font-weight:bold; color:#66c0f4;");
         m_btnStart->setEnabled(false);
         m_btnStop->setEnabled(true);
         break;
     case S::Running:
-        m_statusLabel->setText(tr("●  運行中"));
+        m_statusLabel->setText(tr("運行中"));
         m_statusLabel->setStyleSheet("font-size:14pt; font-weight:bold; color:#8ab41f;");
         m_btnStart->setEnabled(false);
         m_btnStop->setEnabled(true);
         break;
     case S::Stopping:
-        m_statusLabel->setText(tr("●  停止中..."));
+        m_statusLabel->setText(tr("停止中..."));
         m_statusLabel->setStyleSheet("font-size:14pt; font-weight:bold; color:#eb4b4b;");
         m_btnStart->setEnabled(false);
         m_btnStop->setEnabled(false);
@@ -755,7 +755,7 @@ void MainWindow::saveSettingsFromUI()
         }
         m_steamCmd->setSteamCmdDir(steamPath);
     } else {
-        appendLog(tr("⚠ Failed to save settings."));
+        appendLog(tr("[WARN] Failed to save settings."));
     }
 }
 
