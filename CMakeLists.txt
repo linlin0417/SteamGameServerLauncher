@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(SteamGameServerLauncher VERSION 1.0.10 LANGUAGES C CXX)
+project(SteamGameServerLauncher VERSION 1.0.11 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -77,8 +77,8 @@ if(WINDEPLOYQT_EXECUTABLE AND WIN32)
 endif()
 
 # --- Installation ---
-install(TARGETS SteamGameServerLauncher Updater DESTINATION bin)
-install(DIRECTORY "$<TARGET_FILE_DIR:SteamGameServerLauncher>/" DESTINATION bin
+install(TARGETS SteamGameServerLauncher Updater DESTINATION .)
+install(DIRECTORY "$<TARGET_FILE_DIR:SteamGameServerLauncher>/" DESTINATION .
         FILES_MATCHING PATTERN "*.dll" PATTERN "plugins/*" PATTERN "platforms/*" PATTERN "styles/*" PATTERN "tls/*" PATTERN "networkinformation/*"
         PATTERN "_CPack_Packages" EXCLUDE
         PATTERN "CMakeFiles" EXCLUDE)
