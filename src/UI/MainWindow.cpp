@@ -690,16 +690,10 @@ void MainWindow::updateServerStateUI()
 
 QString MainWindow::dataRootDir() const
 {
-    // Use AppLocalDataLocation (e.g. C:/Users/<user>/AppData/Local/SteamGameServerLauncher)
-    // to avoid permission issues when installed under Program Files.
-    const QString appDataDir =
-        QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
-    if (!appDataDir.isEmpty()) {
-        QDir().mkpath(appDataDir);
-        return appDataDir;
-    }
-    // Fallback to application directory if AppLocalDataLocation is unavailable
-    return QCoreApplication::applicationDirPath();
+    // 將 SteamCMD 與遊戲資料存放在程式安裝目錄下的專屬資料夾 GameData 中
+    const QString dataDir = QCoreApplication::applicationDirPath() + "/GameData";
+    QDir().mkpath(dataDir);
+    return dataDir;
 }
 
 QString MainWindow::settingsFilePath() const
