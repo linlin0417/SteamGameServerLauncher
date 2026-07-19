@@ -1,7 +1,8 @@
 本專案測試中 - by Saya
 
-目前進度[TODO.md](TODO.md)
-
+目前進度[TODO.md](TODO.md)  
+更新日誌[CHANGELOG.md](changelog.md)
+---
 ## 許可證
 本專案原始碼採用 Apache License 2.0 授權。
 
