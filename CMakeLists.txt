@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(SteamGameServerLauncher VERSION 1.1.0 LANGUAGES C CXX)
+project(SteamGameServerLauncher VERSION 1.2.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -21,6 +21,8 @@ set(LAUNCHER_SOURCES
     src/Core/SteamCmdManager.cpp
     src/Core/ServerManager.cpp
     src/Core/GithubUpdater.cpp
+    src/Core/MapPackager.cpp
+    updater/miniz.c
 )
 
 set(LAUNCHER_HEADERS
@@ -29,6 +31,7 @@ set(LAUNCHER_HEADERS
     src/Core/SteamCmdManager.h
     src/Core/ServerManager.h
     src/Core/GithubUpdater.h
+    src/Core/MapPackager.h
 )
 
 add_executable(SteamGameServerLauncher WIN32
@@ -36,7 +39,10 @@ add_executable(SteamGameServerLauncher WIN32
     ${LAUNCHER_HEADERS}
 )
 
-target_include_directories(SteamGameServerLauncher PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_include_directories(SteamGameServerLauncher PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/updater
+)
 target_link_libraries(SteamGameServerLauncher PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::Network

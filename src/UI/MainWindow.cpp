@@ -3,10 +3,13 @@
 #include "../Core/SteamCmdManager.h"
 #include "../Core/ServerManager.h"
 #include "../Core/GithubUpdater.h"
+#include "../Core/MapPackager.h"
 
 #include <QApplication>
 #include <QCloseEvent>
+#include <QComboBox>
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QDir>
 #include <QStandardPaths>
 #include <QFileDialog>
@@ -66,6 +69,7 @@ MainWindow::MainWindow(QWidget *parent)
     QTabWidget *tabs = new QTabWidget;
     tabs->addTab(createControlTab(),  tr("  伺服器控制  "));
     tabs->addTab(createSettingsTab(), tr("  伺服器設定  "));
+    tabs->addTab(createMapTab(),      tr("  地圖管理  "));
     tabs->addTab(createAboutTab(),    tr("  關於 / 更新  "));
     setCentralWidget(tabs);
 
@@ -508,6 +512,132 @@ QWidget *MainWindow::createSettingsTab()
 }
 
 // ═══════════════════════════════════════════════════════════════════
+//  Tab: Map Management
+// ═══════════════════════════════════════════════════════════════════
+
+QWidget *MainWindow::createMapTab()
+{
+    QWidget *page = new QWidget;
+    QVBoxLayout *outer = new QVBoxLayout(page);
+    outer->setSpacing(16);
+    outer->setContentsMargins(16, 16, 16, 16);
+
+    // --- 匯出區塊 ---
+    QGroupBox *grpExport = new QGroupBox(tr("匯出地圖"));
+    QVBoxLayout *exportLayout = new QVBoxLayout(grpExport);
+    exportLayout->setSpacing(10);
+    exportLayout->setContentsMargins(16, 24, 16, 16);
+
+    QFormLayout *exportForm = new QFormLayout;
+    exportForm->setSpacing(10);
+
+    // 存檔選擇下拉選單
+    QHBoxLayout *prospectRow = new QHBoxLayout;
+    m_comboProspects = new QComboBox;
+    m_comboProspects->setMinimumWidth(250);
+    m_btnRefreshProspects = new QPushButton(tr("重新整理"));
+    m_btnRefreshProspects->setMinimumWidth(80);
+    prospectRow->addWidget(m_comboProspects, 1);
+    prospectRow->addWidget(m_btnRefreshProspects);
+    exportForm->addRow(tr("選擇存檔:"), prospectRow);
+
+    // 地圖包名稱
+    m_editMapPackageName = new QLineEdit;
+    m_editMapPackageName->setPlaceholderText(tr("輸入地圖包的顯示名稱..."));
+    exportForm->addRow(tr("地圖包名稱:"), m_editMapPackageName);
+
+    // 備註
+    m_editMapNotes = new QTextEdit;
+    m_editMapNotes->setMaximumHeight(72);
+    m_editMapNotes->setPlaceholderText(tr("輸入此地圖備份的備註說明（可選）..."));
+    exportForm->addRow(tr("備註:"), m_editMapNotes);
+
+    // 預覽圖片選擇
+    QHBoxLayout *previewRow = new QHBoxLayout;
+    m_editPreviewImagePath = new QLineEdit;
+    m_editPreviewImagePath->setPlaceholderText(tr("預覽圖片路徑（可選）..."));
+    m_editPreviewImagePath->setReadOnly(true);
+    QPushButton *btnBrowsePreview = new QPushButton(tr("瀏覽..."));
+    btnBrowsePreview->setMinimumWidth(60);
+    previewRow->addWidget(m_editPreviewImagePath, 1);
+    previewRow->addWidget(btnBrowsePreview);
+    exportForm->addRow(tr("預覽圖片:"), previewRow);
+
+    exportLayout->addLayout(exportForm);
+
+    // 匯出按鈕靠右
+    QHBoxLayout *exportBtnRow = new QHBoxLayout;
+    m_btnExportMap = new QPushButton(tr("匯出地圖包"));
+    m_btnExportMap->setStyleSheet(
+        "QPushButton { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #79a01b, stop:1 #5c7e10); color: #d2efa9; border: 1px solid #455e09; }"
+        "QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #8ab41f, stop:1 #6b9313); color: #ffffff; }"
+        "QPushButton:disabled { background: #2a2f35; color: #555; border: none; }");
+    exportBtnRow->addStretch();
+    exportBtnRow->addWidget(m_btnExportMap);
+    exportLayout->addLayout(exportBtnRow);
+
+    outer->addWidget(grpExport);
+
+    // --- 匯入區塊 ---
+    QGroupBox *grpImport = new QGroupBox(tr("匯入地圖"));
+    QVBoxLayout *importLayout = new QVBoxLayout(grpImport);
+    importLayout->setSpacing(10);
+    importLayout->setContentsMargins(16, 24, 16, 16);
+
+    QHBoxLayout *importContent = new QHBoxLayout;
+    importContent->setSpacing(16);
+
+    // 左側：匯入按鈕與資訊
+    QVBoxLayout *importLeft = new QVBoxLayout;
+    m_btnImportMap = new QPushButton(tr("選擇 .IcarusMap 檔案..."));
+    importLeft->addWidget(m_btnImportMap);
+
+    m_mapInfoLabel = new QLabel(tr("尚未選擇地圖包檔案。"));
+    m_mapInfoLabel->setWordWrap(true);
+    m_mapInfoLabel->setStyleSheet("color: #8f98a0; font-size: 9pt; padding: 8px;");
+    m_mapInfoLabel->setMinimumHeight(80);
+    importLeft->addWidget(m_mapInfoLabel);
+    importLeft->addStretch();
+    importContent->addLayout(importLeft, 1);
+
+    // 右側：預覽圖片
+    m_previewImage = new QLabel;
+    m_previewImage->setFixedSize(200, 150);
+    m_previewImage->setAlignment(Qt::AlignCenter);
+    m_previewImage->setStyleSheet(
+        "QLabel { background-color: #101214; border: 1px solid #2a3746; border-radius: 4px; color: #555; }");
+    m_previewImage->setText(tr("無預覽圖"));
+    importContent->addWidget(m_previewImage);
+
+    importLayout->addLayout(importContent);
+
+    outer->addWidget(grpImport);
+
+    outer->addStretch();
+
+    // --- 連接信號 ---
+    connect(m_btnRefreshProspects, &QPushButton::clicked,
+            this, &MainWindow::refreshProspectList);
+    connect(btnBrowsePreview, &QPushButton::clicked, this, [this]() {
+        const QString path = QFileDialog::getOpenFileName(
+            this, tr("選擇預覽圖片"), QString(),
+            tr("圖片檔案 (*.png *.jpg *.jpeg *.bmp);;所有檔案 (*)"));
+        if (!path.isEmpty()) {
+            m_editPreviewImagePath->setText(QDir::toNativeSeparators(path));
+        }
+    });
+    connect(m_btnExportMap, &QPushButton::clicked,
+            this, &MainWindow::onExportMap);
+    connect(m_btnImportMap, &QPushButton::clicked,
+            this, &MainWindow::onImportMap);
+
+    // 初始化存檔列表
+    refreshProspectList();
+
+    return page;
+}
+
+// ═══════════════════════════════════════════════════════════════════
 //  Tab: About / Update
 // ═══════════════════════════════════════════════════════════════════
 
@@ -679,6 +809,230 @@ void MainWindow::onBrowseServerBasePath()
         this, tr("Select Server Base Directory"), m_editServerBasePath->text());
     if (!path.isEmpty()) {
         m_editServerBasePath->setText(QDir::toNativeSeparators(path));
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  Map Management Actions
+// ═══════════════════════════════════════════════════════════════════
+
+QString MainWindow::prospectsDir() const
+{
+    return serverInstallDir()
+        + "/Icarus/Saved/PlayerData/DedicatedServer/Prospects";
+}
+
+void MainWindow::refreshProspectList()
+{
+    if (!m_comboProspects) {
+        return;
+    }
+
+    m_comboProspects->clear();
+
+    const QString dir = prospectsDir();
+    QDir prospectDir(dir);
+    if (!prospectDir.exists()) {
+        appendLog(tr("[地圖] 存檔目錄不存在: %1").arg(dir));
+        return;
+    }
+
+    // 列出所有 .json 檔案，排除 .backup
+    QStringList filters;
+    filters << "*.json";
+    QFileInfoList entries = prospectDir.entryInfoList(
+        filters, QDir::Files, QDir::Name);
+
+    for (const QFileInfo &fi : entries) {
+        // 排除 .json.backup 檔案
+        if (fi.fileName().endsWith(".backup")) {
+            continue;
+        }
+        m_comboProspects->addItem(fi.baseName(), fi.absoluteFilePath());
+    }
+
+    if (m_comboProspects->count() == 0) {
+        appendLog(tr("[地圖] 在 %1 中未找到任何地圖存檔。").arg(dir));
+    } else {
+        appendLog(tr("[地圖] 找到 %1 個地圖存檔。")
+                      .arg(m_comboProspects->count()));
+    }
+}
+
+void MainWindow::onExportMap()
+{
+    // 檢查伺服器運行狀態
+    if (m_serverMgr->isRunning()) {
+        QMessageBox::warning(this, tr("無法匯出"),
+            tr("伺服器正在運行中，請先停止伺服器後再進行匯出操作，\n"
+               "以避免存檔檔案損毀。"));
+        return;
+    }
+
+    // 驗證使用者輸入
+    if (m_comboProspects->count() == 0 || m_comboProspects->currentIndex() < 0) {
+        QMessageBox::warning(this, tr("匯出失敗"),
+            tr("請先選擇要匯出的地圖存檔。\n"
+               "若列表為空，請確認伺服器已安裝且存檔目錄存在。"));
+        return;
+    }
+
+    const QString packageName = m_editMapPackageName->text().trimmed();
+    if (packageName.isEmpty()) {
+        QMessageBox::warning(this, tr("匯出失敗"),
+            tr("請輸入地圖包名稱。"));
+        return;
+    }
+
+    const QString prospectName = m_comboProspects->currentText();
+    const QString prospDir = prospectsDir();
+
+    // 組裝中繼資料
+    MapMetadata metadata;
+    metadata.packageName = packageName;
+    metadata.originalProspectName = prospectName;
+    metadata.notes = m_editMapNotes->toPlainText().trimmed();
+    metadata.timestamp = QDateTime::currentDateTime().toString(Qt::ISODate);
+    metadata.launcherVersion = QString(APP_VERSION);
+
+    const QString previewPath = m_editPreviewImagePath->text().trimmed();
+    metadata.hasPreview = !previewPath.isEmpty()
+                          && QFileInfo::exists(previewPath);
+
+    // 彈出儲存對話框
+    const QString defaultName = packageName + ".IcarusMap";
+    const QString exportPath = QFileDialog::getSaveFileName(
+        this, tr("匯出地圖包"), defaultName,
+        tr("Icarus 地圖包 (*.IcarusMap);;所有檔案 (*)"));
+
+    if (exportPath.isEmpty()) {
+        return; // 使用者取消
+    }
+
+    // 執行匯出
+    appendLog(tr("[地圖] 正在匯出地圖包: %1 ...").arg(packageName));
+    QString errorMsg;
+    const bool success = MapPackager::exportMap(
+        exportPath, prospDir, prospectName, metadata, previewPath, &errorMsg);
+
+    if (success) {
+        appendLog(tr("[地圖] 匯出成功: %1").arg(exportPath));
+        QMessageBox::information(this, tr("匯出成功"),
+            tr("地圖包已成功匯出至:\n%1").arg(exportPath));
+    } else {
+        appendLog(tr("[地圖] 匯出失敗: %1").arg(errorMsg));
+        QMessageBox::critical(this, tr("匯出失敗"),
+            tr("地圖包匯出失敗:\n%1").arg(errorMsg));
+    }
+}
+
+void MainWindow::onImportMap()
+{
+    // 檢查伺服器運行狀態
+    if (m_serverMgr->isRunning()) {
+        QMessageBox::warning(this, tr("無法匯入"),
+            tr("伺服器正在運行中，請先停止伺服器後再進行匯入操作，\n"
+               "以避免存檔檔案損毀。"));
+        return;
+    }
+
+    // 選擇檔案
+    const QString filePath = QFileDialog::getOpenFileName(
+        this, tr("選擇地圖包檔案"), QString(),
+        tr("Icarus 地圖包 (*.IcarusMap);;所有檔案 (*)"));
+
+    if (filePath.isEmpty()) {
+        return; // 使用者取消
+    }
+
+    // 讀取中繼資料
+    bool metaOk = false;
+    MapMetadata metadata = MapPackager::readMetadata(filePath, &metaOk);
+    if (!metaOk) {
+        QMessageBox::critical(this, tr("讀取失敗"),
+            tr("無法讀取地圖包的中繼資料。\n檔案可能已損壞或格式不正確。"));
+        return;
+    }
+
+    // 顯示中繼資料
+    QString infoText = tr(
+        "<b>地圖包名稱:</b> %1<br>"
+        "<b>原始存檔:</b> %2<br>"
+        "<b>匯出時間:</b> %3<br>"
+        "<b>啟動器版本:</b> %4")
+        .arg(metadata.packageName.toHtmlEscaped(),
+             metadata.originalProspectName.toHtmlEscaped(),
+             metadata.timestamp.toHtmlEscaped(),
+             metadata.launcherVersion.toHtmlEscaped());
+    if (!metadata.notes.isEmpty()) {
+        infoText += tr("<br><b>備註:</b> %1")
+                        .arg(metadata.notes.toHtmlEscaped());
+    }
+    m_mapInfoLabel->setText(infoText);
+
+    // 讀取並顯示預覽圖
+    QPixmap preview = MapPackager::readPreview(filePath);
+    if (!preview.isNull()) {
+        m_previewImage->setPixmap(
+            preview.scaled(200, 150, Qt::KeepAspectRatio,
+                           Qt::SmoothTransformation));
+    } else {
+        m_previewImage->setText(tr("無預覽圖"));
+    }
+
+    // 確認匯入
+    const auto reply = QMessageBox::question(
+        this, tr("確認匯入"),
+        tr("即將匯入地圖包:\n\n"
+           "名稱: %1\n"
+           "原始存檔: %2\n\n"
+           "是否繼續？")
+            .arg(metadata.packageName, metadata.originalProspectName),
+        QMessageBox::Yes | QMessageBox::No);
+
+    if (reply != QMessageBox::Yes) {
+        return;
+    }
+
+    // 檢查目標目錄中是否存在同名檔案
+    const QString targetDir = prospectsDir();
+    const QString targetFile = targetDir + '/'
+        + metadata.originalProspectName + ".json";
+    bool overwrite = false;
+
+    if (QFileInfo::exists(targetFile)) {
+        const auto overwriteReply = QMessageBox::question(
+            this, tr("檔案已存在"),
+            tr("目標目錄中已存在同名的存檔檔案:\n%1\n\n"
+               "是否覆寫？").arg(targetFile),
+            QMessageBox::Yes | QMessageBox::No);
+
+        if (overwriteReply != QMessageBox::Yes) {
+            appendLog(tr("[地圖] 使用者取消匯入（同名檔案衝突）。"));
+            return;
+        }
+        overwrite = true;
+    }
+
+    // 執行匯入
+    appendLog(tr("[地圖] 正在匯入地圖包: %1 ...")
+                  .arg(metadata.packageName));
+    QString errorMsg;
+    const bool success = MapPackager::importMap(
+        filePath, targetDir, overwrite, &errorMsg);
+
+    if (success) {
+        appendLog(tr("[地圖] 匯入成功: %1")
+                      .arg(metadata.originalProspectName));
+        QMessageBox::information(this, tr("匯入成功"),
+            tr("地圖包已成功匯入。\n"
+               "存檔名稱: %1").arg(metadata.originalProspectName));
+        // 重新整理存檔列表
+        refreshProspectList();
+    } else {
+        appendLog(tr("[地圖] 匯入失敗: %1").arg(errorMsg));
+        QMessageBox::critical(this, tr("匯入失敗"),
+            tr("地圖包匯入失敗:\n%1").arg(errorMsg));
     }
 }
 

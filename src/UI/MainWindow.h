@@ -9,6 +9,7 @@ class QLineEdit;
 class QSpinBox;
 class QLabel;
 class QProgressBar;
+class QComboBox;
 
 class SteamCmdManager;
 class ServerManager;
@@ -30,6 +31,7 @@ private:
     // --- Tab creation helpers ---
     QWidget *createControlTab();
     QWidget *createSettingsTab();
+    QWidget *createMapTab();
     QWidget *createAboutTab();
 
     // --- Helpers ---
@@ -53,6 +55,10 @@ private:
     void onBrowseSteamCmdPath();
     void onBrowseServerBasePath();
     void onBrowseServerExe();
+    void onExportMap();
+    void onImportMap();
+    void refreshProspectList();
+    QString prospectsDir() const;
 
     // --- Core modules ---
     SteamCmdManager *m_steamCmd   = nullptr;
@@ -90,4 +96,15 @@ private:
 
     QString m_pendingDownloadUrl;
     QString m_pendingZipPath;
+
+    // --- UI: Map Management tab ---
+    QComboBox  *m_comboProspects      = nullptr;
+    QLineEdit  *m_editMapPackageName  = nullptr;
+    QTextEdit  *m_editMapNotes        = nullptr;
+    QLineEdit  *m_editPreviewImagePath = nullptr;
+    QPushButton *m_btnRefreshProspects = nullptr;
+    QPushButton *m_btnExportMap        = nullptr;
+    QPushButton *m_btnImportMap        = nullptr;
+    QLabel     *m_previewImage         = nullptr;
+    QLabel     *m_mapInfoLabel         = nullptr;
 };
