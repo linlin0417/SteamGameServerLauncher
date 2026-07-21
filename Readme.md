@@ -2,6 +2,11 @@
 
 目前進度[TODO.md](TODO.md)  
 更新日誌[CHANGELOG.md](changelog.md)
+
+## 如何使用
+前往[releases](https://github.com/linlin0417/SteamGameServerLauncher/releases/latest)
+請下載.msi安裝檔  
+> 請注意: 請盡量安裝在非權限管制的資料夾中以避免需要UAC
 ---
 ## 許可證
 本專案原始碼採用 Apache License 2.0 授權。
