@@ -1,4 +1,6 @@
-本專案測試中 - by Saya
+本專案測試中 - by Saya  
+目前僅限支援 icarus  
+> 注意: 目前發現些微的記憶體使用異常與權限問題
 
 目前進度[TODO.md](TODO.md)  
 更新日誌[CHANGELOG.md](changelog.md)
