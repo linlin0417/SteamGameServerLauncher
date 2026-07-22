@@ -5,14 +5,14 @@
 
 ## 如何使用
 前往[releases](https://github.com/linlin0417/SteamGameServerLauncher/releases/latest)
-請下載.msi安裝檔  
+請下載 `.exe` 安裝檔  
 > 請注意: 請盡量安裝在非權限管制的資料夾中以避免需要UAC
 ---
 ## 許可證
 本專案原始碼採用 Apache License 2.0 授權。
 
 - 完整授權條款請參閱專案根目錄的 `LICENSE`。
-- Copyright (c) 2026 Yukimura Saya
+- Copyright (c) 2026 Yukimura Saya & The Dream Studio
 
 ### Qt 相關授權說明
 本專案使用 Qt。Qt 與其模組、外掛及相關函式庫不受本專案 Apache-2.0
@@ -24,4 +24,3 @@
 - 保留原始授權與版權聲明
 - 提供相應的授權文件與第三方聲明
 - 若適用 LGPL，遵守動態連結、可替換函式庫與必要的重連結要求
-

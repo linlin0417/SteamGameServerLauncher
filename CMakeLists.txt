@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(SteamGameServerLauncher VERSION 1.2.0 LANGUAGES C CXX)
+project(SteamGameServerLauncher VERSION 1.3.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -89,29 +89,22 @@ install(DIRECTORY "$<TARGET_FILE_DIR:SteamGameServerLauncher>/" DESTINATION .
         PATTERN "_CPack_Packages" EXCLUDE
         PATTERN "CMakeFiles" EXCLUDE)
 
+# --- 安裝 SGSL 圖示 ---
+install(FILES "${CMAKE_SOURCE_DIR}/src/UI/SGSL_icon.ico" DESTINATION .)
+
 # --- CPack Configuration ---
+# CPack 僅負責產出 ZIP 供自動更新使用。
+# .exe 安裝檔由獨立的 NSIS 腳本 (installer/sgsl_installer.nsi) 負責產出。
 set(CPACK_PACKAGE_NAME "${PROJECT_NAME}")
-set(CPACK_PACKAGE_VENDOR "linlin0417")
+set(CPACK_PACKAGE_VENDOR "Yukimura Saya & The Dream Studio")
 set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Steam Game Server Launcher")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "${PROJECT_NAME}")
 
 if(WIN32)
-    # 支援產生 MSI (WIX)、EXE (NSIS) 與 ZIP
-    set(CPACK_GENERATOR "WIX;NSIS;ZIP")
-    set(CPACK_WIX_UPGRADE_GUID "B81B7F0E-9C3B-443B-9A74-D72D1AC5B853") # 替換為真實唯一的 GUID
-    set(CPACK_WIX_PROGRAM_MENU_FOLDER "Steam Game Server Launcher")
-    
-    # NSIS (EXE 安裝檔) 專屬設定，會自動產生解除安裝程式與捷徑
-    set(CPACK_NSIS_DISPLAY_NAME "Steam Game Server Launcher")
-    set(CPACK_NSIS_MUI_ICON "${CMAKE_SOURCE_DIR}/src/UI/icon.ico") # 如果未來有圖示可放這
-    set(CPACK_NSIS_INSTDIR_NAME "SteamGameServerLauncher")
-    
-    # Shortcut for main executable
-    set(CPACK_PACKAGE_EXECUTABLES "SteamGameServerLauncher" "Steam Game Server Launcher")
+    set(CPACK_GENERATOR "ZIP")
 
-    # Important: Do not nest contents in a top-level directory in the ZIP file
-    # so the updater can directly extract over the existing installation
+    # 不在 ZIP 中建立頂層目錄，讓更新程式可以直接覆蓋解壓
     set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY OFF)
 endif()
 
