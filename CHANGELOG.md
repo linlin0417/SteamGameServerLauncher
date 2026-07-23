@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-07-24
+
+### Fixed
+- 修復 NSIS 安裝包中的多國語系文字與授權書中文顯示亂碼問題（強制將編譯用的文字檔與腳本加上 UTF-8 BOM）。
+
+## [1.3.0] - 2026-07-23
+
+### Added
+- 將打包機制從 WiX (MSI) 完全轉換為獨立的 NSIS 可執行安裝檔 (.exe)。
+- 支援安裝時 6 種語言選擇（繁體中文、英文、日文、西班牙語、法文、德文），並動態切換 UI 與授權書語系。
+- 新增三個獨立授權頁面（EULA、Qt 授權條款、資料收集協定），支援繁體中文與英文雙語切換。
+- 加入 UAC 權限警告機制，當使用者選擇安裝於 Program Files 等受限資料夾時會跳出提示。
+- 安裝完成後自動建立桌面與開始選單捷徑。
+- CI/CD 整合 PowerShell 腳本，自動將 Markdown 格式的授權檔案轉換為純文字檔供 NSIS 讀取。
+- 更新版權所有人聲明為 Yukimura Saya & The Dream Studio，並加入與 Valve 相關的商標免責聲明。
+
 ## [1.2.0] - 2026-07-20
 
 ### Added

@@ -76,7 +76,7 @@ jobs:
             [System.IO.File]::WriteAllText(
                 (Resolve-Path $txtPath -ErrorAction SilentlyContinue) ?? $txtPath,
                 $txt,
-                [System.Text.UTF8Encoding]::new($false)
+                [System.Text.UTF8Encoding]::new($true)
             )
             Write-Output "[OK] Converted: $mdPath -> $txtPath"
         }
@@ -118,6 +118,10 @@ jobs:
     - name: Build NSIS installer
       shell: pwsh
       run: |
+        $nsisScriptPath = 'installer/sgsl_installer.nsi'
+        $nsisContent = Get-Content $nsisScriptPath -Raw -Encoding UTF8
+        [System.IO.File]::WriteAllText((Resolve-Path $nsisScriptPath), $nsisContent, [System.Text.UTF8Encoding]::new($true))
+        
         $nsisPath = 'C:\Program Files (x86)\NSIS\makensis.exe'
         if (-not (Test-Path $nsisPath)) {
             # 嘗試透過 PATH 尋找
