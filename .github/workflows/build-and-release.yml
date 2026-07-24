@@ -16,6 +16,12 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Verify Version (Prevent Duplicates)
+      shell: bash
+      run: bash .github/test/verify_version.sh
 
     - name: Get Version from CMakeLists.txt
       id: get_version

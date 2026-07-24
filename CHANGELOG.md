@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.4.1] - 2026-07-24
+## [1.4.2] - 2026-07-25
 
 ### Fixed
 - 修正伺服器設定頁面 (Settings) 於視窗高度不足時無法完整顯示的問題，加入了捲動條 (QScrollArea) 以便使用者瀏覽。
