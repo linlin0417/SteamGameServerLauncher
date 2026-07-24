@@ -22,6 +22,7 @@ set(LAUNCHER_SOURCES
     src/Core/ServerManager.cpp
     src/Core/GithubUpdater.cpp
     src/Core/MapPackager.cpp
+    src/Core/DiscordManager.cpp
     updater/miniz.c
 )
 
@@ -32,6 +33,7 @@ set(LAUNCHER_HEADERS
     src/Core/ServerManager.h
     src/Core/GithubUpdater.h
     src/Core/MapPackager.h
+    src/Core/DiscordManager.h
 )
 
 add_executable(SteamGameServerLauncher WIN32

@@ -14,6 +14,7 @@ class QComboBox;
 class SteamCmdManager;
 class ServerManager;
 class GithubUpdater;
+class DiscordManager;
 
 /// Main application window with tabbed interface.
 class MainWindow : public QMainWindow
@@ -63,7 +64,8 @@ private:
     // --- Core modules ---
     SteamCmdManager *m_steamCmd   = nullptr;
     ServerManager   *m_serverMgr  = nullptr;
-    GithubUpdater   *m_updater   = nullptr;
+    GithubUpdater   *m_updater    = nullptr;
+    DiscordManager  *m_discordMgr = nullptr;
 
     // --- UI: Control tab ---
     QLabel       *m_statusLabel     = nullptr;
@@ -86,6 +88,8 @@ private:
     QLineEdit *m_editServerBasePath = nullptr;
     QLineEdit *m_editServerExePath  = nullptr;
     QLineEdit *m_editAdditionalArgs = nullptr;
+    QLineEdit *m_editDiscordWebhook = nullptr;
+    QPushButton *m_btnTestDiscordWebhook = nullptr;
 
     // --- UI: About tab ---
     QLabel *m_versionLabel        = nullptr;

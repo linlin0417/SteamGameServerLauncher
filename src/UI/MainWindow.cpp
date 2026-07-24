@@ -4,6 +4,7 @@
 #include "../Core/ServerManager.h"
 #include "../Core/GithubUpdater.h"
 #include "../Core/MapPackager.h"
+#include "../Core/DiscordManager.h"
 
 #include <QApplication>
 #include <QCloseEvent>
@@ -46,6 +47,7 @@ MainWindow::MainWindow(QWidget *parent)
     m_serverMgr = new ServerManager(this);
     m_updater   = new GithubUpdater(
         AppConfig::GithubOwner, AppConfig::GithubRepo, APP_VERSION, this);
+    m_discordMgr = new DiscordManager(this);
 
     // Migrate settings from the old location (next to exe) to the new writable data dir
     const QString oldSettingsPath =
@@ -59,6 +61,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     // Load settings first to get the configured paths
     const QJsonObject settings = ServerManager::loadSettings(settingsFilePath());
+    m_discordMgr->setWebhookUrl(settings.value("discordWebhookUrl").toString());
     QString steamPath = settings.value("steamCmdPath").toString();
     if (steamPath.isEmpty()) {
         steamPath = dataRootDir() + "/" + AppConfig::SteamCmdSubDir;
@@ -80,6 +83,8 @@ MainWindow::MainWindow(QWidget *parent)
             this, &MainWindow::appendLog);
     connect(m_updater,   &GithubUpdater::logMessage,
             this, &MainWindow::appendLog);
+    connect(m_discordMgr, &DiscordManager::logMessage,
+            this, &MainWindow::appendLog);
 
     // SteamCMD operation finished
     connect(m_steamCmd, &SteamCmdManager::operationFinished,
@@ -88,6 +93,7 @@ MainWindow::MainWindow(QWidget *parent)
         m_btnUpdateServer->setEnabled(true);
         if (success) {
             appendLog(tr("[OK] %1").arg(msg));
+            m_discordMgr->sendEmbedMessage(tr("伺服器更新完成"), tr("SteamCMD 已成功完成伺服器更新。"), DiscordManager::ColorSuccess);
             // 如果成功完成更新，嘗試自動偵測伺服器執行檔
             autoDetectServerExe();
         } else {
@@ -122,13 +128,21 @@ MainWindow::MainWindow(QWidget *parent)
 
     // Server state changes
     connect(m_serverMgr, &ServerManager::stateChanged,
-            this, [this](ServerManager::ServerState) {
+            this, [this](ServerManager::ServerState state) {
         updateServerStateUI();
+        if (state == ServerManager::ServerState::Starting) {
+            m_discordMgr->sendEmbedMessage(tr("伺服器啟動中"), tr("伺服器正在啟動..."), DiscordManager::ColorWarning);
+        } else if (state == ServerManager::ServerState::Running) {
+            m_discordMgr->sendEmbedMessage(tr("伺服器已啟動"), tr("伺服器已成功運行！"), DiscordManager::ColorSuccess);
+        } else if (state == ServerManager::ServerState::Stopped) {
+            m_discordMgr->sendEmbedMessage(tr("伺服器已關閉"), tr("伺服器已停止運行。"), DiscordManager::ColorInfo);
+        }
     });
 
     connect(m_serverMgr, &ServerManager::serverCrashed,
             this, [this](int code) {
         appendLog(tr("[WARN] Server crashed with exit code %1").arg(code));
+        m_discordMgr->sendEmbedMessage(tr("伺服器崩潰"), tr("伺服器意外關閉，Exit Code: %1").arg(code), DiscordManager::ColorError);
     });
 
     // GitHub updater signals
@@ -488,6 +502,37 @@ QWidget *MainWindow::createSettingsTab()
 
     outer->addWidget(grpPaths);
 
+    // --- Discord Notifications group ---
+    QGroupBox *grpDiscord = new QGroupBox(tr("Discord 通知設定"));
+    QFormLayout *discordForm = new QFormLayout(grpDiscord);
+    discordForm->setSpacing(10);
+    discordForm->setContentsMargins(16, 24, 16, 16);
+
+    QHBoxLayout *webhookRow = new QHBoxLayout;
+    m_editDiscordWebhook = new QLineEdit;
+    m_editDiscordWebhook->setPlaceholderText(tr("https://discord.com/api/webhooks/..."));
+    m_editDiscordWebhook->setEchoMode(QLineEdit::PasswordEchoOnEdit);
+    m_btnTestDiscordWebhook = new QPushButton(tr("發送測試通知"));
+    connect(m_btnTestDiscordWebhook, &QPushButton::clicked, this, [this]() {
+        QString url = m_editDiscordWebhook->text().trimmed();
+        if (url.isEmpty()) {
+            QMessageBox::warning(this, tr("錯誤"), tr("請先輸入 Webhook URL。"));
+            return;
+        }
+        m_discordMgr->setWebhookUrl(url);
+        m_discordMgr->sendEmbedMessage(
+            tr("Webhook 測試"),
+            tr("這是一則測試訊息，如果看到這則訊息，代表您的 Webhook 設定正確！"),
+            DiscordManager::ColorSuccess
+        );
+        appendLog(tr("[Discord] 測試通知發送請求已送出。"));
+    });
+    webhookRow->addWidget(m_editDiscordWebhook, 1);
+    webhookRow->addWidget(m_btnTestDiscordWebhook);
+    discordForm->addRow(tr("Webhook URL:"), webhookRow);
+
+    outer->addWidget(grpDiscord);
+
     // Buttons
     QHBoxLayout *btnRow = new QHBoxLayout;
     QPushButton *btnSave = new QPushButton(tr("儲存設定"));
@@ -505,6 +550,7 @@ QWidget *MainWindow::createSettingsTab()
         // Temporarily save defaults, then reload
         ServerManager::saveSettings(settingsFilePath(), defaults);
         loadSettingsToUI();
+        m_discordMgr->setWebhookUrl(m_editDiscordWebhook->text());
         appendLog(tr("Settings reset to defaults."));
     });
 
@@ -917,6 +963,7 @@ void MainWindow::onExportMap()
 
     if (success) {
         appendLog(tr("[地圖] 匯出成功: %1").arg(exportPath));
+        m_discordMgr->sendEmbedMessage(tr("地圖匯出完成"), tr("已成功匯出地圖包: %1").arg(packageName), DiscordManager::ColorSuccess);
         QMessageBox::information(this, tr("匯出成功"),
             tr("地圖包已成功匯出至:\n%1").arg(exportPath));
     } else {
@@ -1024,6 +1071,7 @@ void MainWindow::onImportMap()
     if (success) {
         appendLog(tr("[地圖] 匯入成功: %1")
                       .arg(metadata.originalProspectName));
+        m_discordMgr->sendEmbedMessage(tr("地圖匯入完成"), tr("已成功匯入地圖包: %1").arg(metadata.packageName), DiscordManager::ColorSuccess);
         QMessageBox::information(this, tr("匯入成功"),
             tr("地圖包已成功匯入。\n"
                "存檔名稱: %1").arg(metadata.originalProspectName));
@@ -1115,6 +1163,7 @@ void MainWindow::loadSettingsToUI()
     m_editServerBasePath->setText(s.value("serverBasePath").toString());
     m_editServerExePath->setText( s.value("serverExePath").toString());
     m_editAdditionalArgs->setText(s.value("additionalArgs").toString());
+    m_editDiscordWebhook->setText(s.value("discordWebhookUrl").toString());
 }
 
 void MainWindow::saveSettingsFromUI()
@@ -1130,6 +1179,7 @@ void MainWindow::saveSettingsFromUI()
     s["serverBasePath"] = m_editServerBasePath->text();
     s["serverExePath"]  = m_editServerExePath->text();
     s["additionalArgs"] = m_editAdditionalArgs->text();
+    s["discordWebhookUrl"] = m_editDiscordWebhook->text();
 
     if (ServerManager::saveSettings(settingsFilePath(), s)) {
         appendLog(tr("Settings saved."));
@@ -1139,6 +1189,7 @@ void MainWindow::saveSettingsFromUI()
             steamPath = dataRootDir() + "/" + AppConfig::SteamCmdSubDir;
         }
         m_steamCmd->setSteamCmdDir(steamPath);
+        m_discordMgr->setWebhookUrl(m_editDiscordWebhook->text());
     } else {
         appendLog(tr("[WARN] Failed to save settings."));
     }

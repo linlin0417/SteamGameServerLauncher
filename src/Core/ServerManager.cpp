@@ -150,7 +150,8 @@ QJsonObject ServerManager::defaultSettings()
         {"queryPort",     AppConfig::DefaultQueryPort},
         {"serverInstallDir", QString()},
         {"serverExePath",    QString()},
-        {"additionalArgs",   QString()}
+        {"additionalArgs",   QString()},
+        {"discordWebhookUrl", QString()}
     };
 }
 
