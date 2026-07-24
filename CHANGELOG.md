@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-07-24
+
+### Fixed
+- 修正伺服器設定頁面 (Settings) 於視窗高度不足時無法完整顯示的問題，加入了捲動條 (QScrollArea) 以便使用者瀏覽。
+
+## [1.4.0] - 2026-07-24
+
+### Added
+- 新增 Discord Hook 通知功能。透過 HTTP POST 支援 Discord Rich Embeds 格式的事件推播（啟動、關閉、崩潰、更新完成、地圖操作）。
+
 ## [1.3.1] - 2026-07-24
 
 ### Fixed

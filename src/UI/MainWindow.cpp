@@ -24,6 +24,7 @@
 #include <QProgressBar>
 #include <QPushButton>
 #include <QScrollBar>
+#include <QScrollArea>
 #include <QSpinBox>
 #include <QTabWidget>
 #include <QTextEdit>
@@ -419,6 +420,10 @@ QWidget *MainWindow::createControlTab()
 
 QWidget *MainWindow::createSettingsTab()
 {
+    QScrollArea *scrollArea = new QScrollArea;
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setFrameShape(QFrame::NoFrame);
+
     QWidget *page = new QWidget;
     QVBoxLayout *outer = new QVBoxLayout(page);
     outer->setSpacing(16);
@@ -554,7 +559,8 @@ QWidget *MainWindow::createSettingsTab()
         appendLog(tr("Settings reset to defaults."));
     });
 
-    return page;
+    scrollArea->setWidget(page);
+    return scrollArea;
 }
 
 // ═══════════════════════════════════════════════════════════════════
