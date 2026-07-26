@@ -12,6 +12,7 @@
 #include <QNetworkRequest>
 #include <QProcess>
 #include <QStandardPaths>
+#include <QCryptographicHash>
 #include <QVersionNumber>
 
 #ifdef Q_OS_WIN
@@ -83,29 +84,35 @@ void GithubUpdater::checkForUpdate()
         if (isNewerVersion(remoteVersion, m_currentVersion)) {
             // Find a suitable download asset (look for .zip containing the platform)
             QString downloadUrl;
+            QString sha256Url;
+            qint64 sizeBytes = 0;
+            QString publishDate = root.value("published_at").toString();
+
             const QJsonArray assets = root.value("assets").toArray();
             for (const QJsonValue &av : assets) {
                 const QJsonObject asset = av.toObject();
                 const QString name = asset.value("name").toString();
                 if (name.endsWith(".zip", Qt::CaseInsensitive)) {
-                    downloadUrl =
-                        asset.value("browser_download_url").toString();
-                    break;
+                    downloadUrl = asset.value("browser_download_url").toString();
+                    sizeBytes = asset.value("size").toInteger();
+                } else if (name == "sha256sums.txt") {
+                    sha256Url = asset.value("browser_download_url").toString();
                 }
             }
             if (downloadUrl.isEmpty() && !assets.isEmpty()) {
                 // Fallback: use the first asset
                 downloadUrl = assets.first().toObject()
                                   .value("browser_download_url").toString();
+                sizeBytes = assets.first().toObject().value("size").toInteger();
             }
-            emit updateAvailable(remoteVersion, downloadUrl, body);
+            emit updateAvailable(remoteVersion, downloadUrl, body, sizeBytes, publishDate, sha256Url);
         } else {
             emit noUpdateAvailable();
         }
     });
 }
 
-void GithubUpdater::downloadUpdate(const QString &downloadUrl)
+void GithubUpdater::downloadUpdate(const QString &downloadUrl, const QString &sha256Url)
 {
     if (downloadUrl.isEmpty()) {
         emit updateError(tr("No download URL provided."));
@@ -124,7 +131,7 @@ void GithubUpdater::downloadUpdate(const QString &downloadUrl)
     connect(m_currentDownload, &QNetworkReply::downloadProgress,
             this, &GithubUpdater::downloadProgress);
 
-    connect(m_currentDownload, &QNetworkReply::finished, this, [this]() {
+    connect(m_currentDownload, &QNetworkReply::finished, this, [this, sha256Url]() {
         QNetworkReply *reply = m_currentDownload;
         m_currentDownload = nullptr;
         reply->deleteLater();
@@ -147,8 +154,48 @@ void GithubUpdater::downloadUpdate(const QString &downloadUrl)
         file.write(reply->readAll());
         file.close();
 
-        emit logMessage(tr("[Updater] Download saved to: %1").arg(savePath));
-        emit downloadFinished(savePath);
+        if (sha256Url.isEmpty()) {
+            emit logMessage(tr("[Updater] Download saved to: %1").arg(savePath));
+            emit downloadFinished(savePath);
+            return;
+        }
+
+        // Fetch SHA256 file
+        emit logMessage(tr("[Updater] Downloading SHA256 verification file..."));
+        QNetworkRequest shaReq(sha256Url);
+        shaReq.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+        shaReq.setRawHeader("User-Agent", "SteamGameServerLauncher");
+        QNetworkReply *shaReply = m_networkManager->get(shaReq);
+
+        connect(shaReply, &QNetworkReply::finished, this, [this, shaReply, savePath]() {
+            shaReply->deleteLater();
+            if (shaReply->error() != QNetworkReply::NoError) {
+                emit updateError(tr("SHA256 download failed: %1").arg(shaReply->errorString()));
+                QFile::remove(savePath);
+                return;
+            }
+            
+            QString shaData = QString::fromUtf8(shaReply->readAll());
+            
+            // Calculate local SHA256
+            QFile zipFile(savePath);
+            if (!zipFile.open(QIODevice::ReadOnly)) {
+                emit updateError(tr("Cannot read downloaded zip for SHA256 calculation."));
+                return;
+            }
+            emit logMessage(tr("[Updater] Verifying SHA256..."));
+            QByteArray localHash = QCryptographicHash::hash(zipFile.readAll(), QCryptographicHash::Sha256).toHex();
+            zipFile.close();
+
+            if (shaData.contains(localHash, Qt::CaseInsensitive)) {
+                emit logMessage(tr("[Updater] SHA256 verification successful."));
+                emit logMessage(tr("[Updater] Download saved to: %1").arg(savePath));
+                emit downloadFinished(savePath);
+            } else {
+                emit updateError(tr("SHA256 verification failed! Local hash: %1").arg(QString(localHash)));
+                QFile::remove(savePath);
+            }
+        });
     });
 }
 

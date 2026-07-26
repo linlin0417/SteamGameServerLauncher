@@ -22,7 +22,7 @@ public:
     void checkForUpdate();
 
     /// Download a release asset from the given URL.
-    void downloadUpdate(const QString &downloadUrl);
+    void downloadUpdate(const QString &downloadUrl, const QString &sha256Url = QString());
 
     /// Launch the external Updater.exe and quit the application.
     void applyUpdate(const QString &zipPath);
@@ -30,7 +30,10 @@ public:
 signals:
     void updateAvailable(const QString &newVersion,
                          const QString &downloadUrl,
-                         const QString &releaseNotes);
+                         const QString &releaseNotes,
+                         qint64 sizeBytes,
+                         const QString &publishDate,
+                         const QString &sha256Url);
     void noUpdateAvailable();
     void downloadProgress(qint64 bytesReceived, qint64 bytesTotal);
     void downloadFinished(const QString &filePath);

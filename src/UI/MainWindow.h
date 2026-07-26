@@ -100,6 +100,7 @@ private:
     QProgressBar *m_updateProgress = nullptr;
 
     QString m_pendingDownloadUrl;
+    QString m_pendingSha256Url;
     QString m_pendingZipPath;
 
     // --- UI: Map Management tab ---

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-07-27
+
+### Added
+- 新增預設下載大小與發布日期的資訊於更新介面。
+- 於 GitHub Actions 編譯時自動產生所有檔案的 SHA256，並附加於 Release Notes。
+- 應用程式自動下載更新時，會抓取線上發布的 `sha256sums.txt` 進行本地 ZIP 檔案的 SHA256 驗證，保障下載更新包的完整與安全性。
+
 ## [1.5.1] - 2026-07-27
 
 ### Added

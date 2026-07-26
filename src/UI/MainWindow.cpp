@@ -148,10 +148,17 @@ MainWindow::MainWindow(QWidget *parent)
 
     // GitHub updater signals
     connect(m_updater, &GithubUpdater::updateAvailable,
-            this, [this](const QString &ver, const QString &url, const QString &notes) {
+            this, [this](const QString &ver, const QString &url, const QString &notes, qint64 sizeBytes, const QString &publishDate, const QString &sha256Url) {
+        
+        QString sizeStr = (sizeBytes > 0) ? QString::number(sizeBytes / (1024.0 * 1024.0), 'f', 1) + " MB" : "Unknown Size";
+        QString dateStr = !publishDate.isEmpty() ? QDateTime::fromString(publishDate, Qt::ISODate).toString("yyyy-MM-dd") : "Unknown Date";
+
         m_updateStatusLabel->setText(
-            tr("<span style='color:#66c0f4;'>New version available: <b>%1</b></span>").arg(ver));
+            tr("<span style='color:#66c0f4;'>New version available: <b>%1</b> (%2, Released: %3)</span>").arg(ver, sizeStr, dateStr));
+        
         m_pendingDownloadUrl = url;
+        m_pendingSha256Url = sha256Url;
+        
         m_btnDownloadUpdate->setEnabled(!url.isEmpty());
         m_btnCheckUpdate->setEnabled(true);
         appendLog(tr("[Updater] New version %1 available!").arg(ver));
@@ -715,8 +722,7 @@ QWidget *MainWindow::createAboutTab()
     layout->addWidget(m_versionLabel);
 
     QLabel *descLabel = new QLabel(
-        tr("A Steam game server launcher supporting Icarus Dedicated Server.\n"
-           "Manage SteamCMD, configure and launch your server from a single GUI."));
+        tr("A Steam game server launcher"));
     descLabel->setWordWrap(true);
     descLabel->setStyleSheet("color: #aaa; font-size: 10pt;");
     layout->addWidget(descLabel);
@@ -767,13 +773,12 @@ QWidget *MainWindow::createAboutTab()
     // Connections
     connect(m_btnCheckUpdate, &QPushButton::clicked, this, &MainWindow::onCheckForUpdate);
     connect(m_btnDownloadUpdate, &QPushButton::clicked, this, [this]() {
-        if (!m_pendingZipPath.isEmpty()) {
-            // We have already downloaded — apply the update
-            m_updater->applyUpdate(m_pendingZipPath);
-        } else if (!m_pendingDownloadUrl.isEmpty()) {
+        if (!m_pendingDownloadUrl.isEmpty()) {
             m_updateProgress->setVisible(true);
+            m_updateProgress->setValue(0);
+            m_updater->downloadUpdate(m_pendingDownloadUrl, m_pendingSha256Url);
             m_btnDownloadUpdate->setEnabled(false);
-            m_updater->downloadUpdate(m_pendingDownloadUrl);
+            m_btnCheckUpdate->setEnabled(false);
         }
     });
 

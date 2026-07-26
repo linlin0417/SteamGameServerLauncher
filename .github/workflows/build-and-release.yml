@@ -166,6 +166,16 @@ jobs:
             exit 1
         }
 
+    - name: Generate SHA256 Checksums
+      shell: bash
+      run: |
+        echo "" >> release_notes.txt
+        echo "### SHA256 Checksums" >> release_notes.txt
+        echo "\`\`\`" >> release_notes.txt
+        sha256sum installer/SteamGameServerLauncher-*.exe build/SteamGameServerLauncher-*.zip > sha256sums.txt
+        cat sha256sums.txt >> release_notes.txt
+        echo "\`\`\`" >> release_notes.txt
+
     - name: Create Release
       uses: softprops/action-gh-release@v2
       env:
@@ -179,3 +189,4 @@ jobs:
         files: |
           installer/SteamGameServerLauncher-*.exe
           build/SteamGameServerLauncher-*.zip
+          sha256sums.txt
