@@ -508,7 +508,7 @@ QWidget *MainWindow::createSettingsTab()
     outer->addWidget(grpPaths);
 
     // --- Discord Notifications group ---
-    QGroupBox *grpDiscord = new QGroupBox(tr("Discord 通知設定"));
+    QGroupBox *grpDiscord = new QGroupBox(tr("Discord 通知設定(disocrd Webhook)"));
     QFormLayout *discordForm = new QFormLayout(grpDiscord);
     discordForm->setSpacing(10);
     discordForm->setContentsMargins(16, 24, 16, 16);

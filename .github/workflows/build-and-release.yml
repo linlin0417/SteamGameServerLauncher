@@ -140,6 +140,32 @@ jobs:
         }
         Write-Output "[OK] NSIS installer built successfully"
 
+    - name: Extract Release Notes from CHANGELOG
+      shell: pwsh
+      run: |
+        $version = $env:VERSION
+        if (-not $version) {
+            Write-Error "[FAIL] VERSION env is empty"
+            exit 1
+        }
+        $changelogPath = 'CHANGELOG.md'
+        if (-not (Test-Path $changelogPath)) {
+            Write-Error "[FAIL] $changelogPath not found!"
+            exit 1
+        }
+        $content = Get-Content $changelogPath -Raw -Encoding UTF8
+        # Match pattern: ## [Version] - Date
+        $pattern = '(?s)## \[' + [regex]::Escape($version) + '\].*?\r?\n(.*?)(?=\r?\n## \[|$)'
+        if ($content -match $pattern) {
+            $notes = $matches[1].Trim()
+            $outPath = 'release_notes.txt'
+            [System.IO.File]::WriteAllText($outPath, $notes, [System.Text.UTF8Encoding]::new($true))
+            Write-Output "[OK] Extracted release notes for version $version"
+        } else {
+            Write-Error "[FAIL] Release notes for version $version not found in $changelogPath!"
+            exit 1
+        }
+
     - name: Create Release
       uses: softprops/action-gh-release@v2
       env:
@@ -147,7 +173,7 @@ jobs:
       with:
         tag_name: v${{ env.VERSION }}
         name: Release v${{ env.VERSION }}
-        body: "Automated release triggered by commit message containing 'AndBuild'."
+        body_path: release_notes.txt
         draft: false
         prerelease: false
         files: |

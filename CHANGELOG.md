@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-07-26
+
+### Changed
+- 改良 CI/CD 自動發布流程，新增 PowerShell 腳本自動從 CHANGELOG.md 提取當前版本的更新日誌內容，並作為 GitHub Release 的內文，取代原有的預設固定文字。
+
 ## [1.4.2] - 2026-07-25
 
 ### Fixed
