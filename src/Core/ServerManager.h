@@ -42,6 +42,9 @@ public:
     /// Build command-line arguments from a settings JSON object.
     static QStringList buildLaunchArgs(const QJsonObject &settings);
 
+    /// Apply specific settings to Icarus INI files.
+    static void applyIcarusSettings(const QJsonObject &settings);
+
 signals:
     void stateChanged(ServerManager::ServerState newState);
     void logMessage(const QString &message);

@@ -815,6 +815,7 @@ void MainWindow::onStartServer()
     }
 
     m_serverMgr->setServerExecutable(exePath);
+    ServerManager::applyIcarusSettings(settings);
     m_serverMgr->startServer(ServerManager::buildLaunchArgs(settings));
 }
 

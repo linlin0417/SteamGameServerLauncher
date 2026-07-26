@@ -207,13 +207,8 @@ QStringList ServerManager::buildLaunchArgs(const QJsonObject &settings)
     const int maxP = settings.value("maxPlayers").toInt(AppConfig::DefaultMaxPlayers);
     args << QStringLiteral("-MaxPlayers=%1").arg(maxP);
 
-    const QString pw = settings.value("password").toString();
-    if (!pw.isEmpty())
-        args << QStringLiteral("-ServerPassword=%1").arg(pw);
-
-    const QString adminPw = settings.value("adminPassword").toString();
-    if (!adminPw.isEmpty())
-        args << QStringLiteral("-AdminPassword=%1").arg(adminPw);
+    // Note: Icarus no longer supports setting passwords via command line arguments.
+    // The passwords must be written to ServerSettings.ini instead.
 
     // Additional free-form arguments
     const QString extra = settings.value("additionalArgs").toString().trimmed();
@@ -222,4 +217,79 @@ QStringList ServerManager::buildLaunchArgs(const QJsonObject &settings)
     }
 
     return args;
+}
+
+void ServerManager::applyIcarusSettings(const QJsonObject &settings)
+{
+    const QString installDir = settings.value("serverInstallDir").toString();
+    if (installDir.isEmpty())
+        return;
+
+    const QString iniPath = installDir + "/Icarus/Saved/Config/WindowsServer/ServerSettings.ini";
+    QFileInfo fi(iniPath);
+    if (!fi.absoluteDir().exists()) {
+        fi.absoluteDir().mkpath(".");
+    }
+
+    QStringList lines;
+    QFile file(iniPath);
+    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QTextStream in(&file);
+        while (!in.atEnd()) {
+            lines.append(in.readLine());
+        }
+        file.close();
+    }
+
+    const QString section = "[/Script/Icarus.DedicatedServerSettings]";
+    const QString pw = settings.value("password").toString();
+    const QString adminPw = settings.value("adminPassword").toString();
+
+    int sectionIdx = -1;
+    for (int i = 0; i < lines.size(); ++i) {
+        if (lines[i].trimmed() == section) {
+            sectionIdx = i;
+            break;
+        }
+    }
+
+    if (sectionIdx == -1) {
+        // Section not found, append it
+        if (!lines.isEmpty() && !lines.last().isEmpty()) {
+            lines.append("");
+        }
+        lines.append(section);
+        sectionIdx = lines.size() - 1;
+    }
+
+    // Update or insert keys
+    auto updateKey = [&](const QString &key, const QString &val) {
+        bool found = false;
+        // Search inside the section until the next section or end of file
+        for (int i = sectionIdx + 1; i < lines.size(); ++i) {
+            QString line = lines[i].trimmed();
+            if (line.startsWith('[')) {
+                break; // Reached next section
+            }
+            if (line.startsWith(key + "=")) {
+                lines[i] = key + "=" + val;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            lines.insert(sectionIdx + 1, key + "=" + val);
+        }
+    };
+
+    updateKey("JoinPassword", pw);
+    updateKey("AdminPassword", adminPw);
+
+    if (file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate)) {
+        QTextStream out(&file);
+        for (const QString &line : lines) {
+            out << line << "\n";
+        }
+        file.close();
+    }
 }

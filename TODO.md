@@ -37,8 +37,6 @@
 
 ## 子版本號
 
-- 1.4.0
-  - Discord hook通知功能
 - 1.5.0
   - 透過[changelog.md](changelog.md)提供更新日誌給自動編譯後的發布使用
   - 改良自動發布
