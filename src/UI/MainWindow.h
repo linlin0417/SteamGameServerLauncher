@@ -94,6 +94,7 @@ private:
     // --- UI: About tab ---
     QLabel *m_versionLabel        = nullptr;
     QLabel *m_updateStatusLabel   = nullptr;
+    QTextEdit *m_updateNotesEdit  = nullptr;
     QPushButton *m_btnCheckUpdate = nullptr;
     QPushButton *m_btnDownloadUpdate = nullptr;
     QProgressBar *m_updateProgress = nullptr;

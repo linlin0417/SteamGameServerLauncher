@@ -155,8 +155,11 @@ MainWindow::MainWindow(QWidget *parent)
         m_btnDownloadUpdate->setEnabled(!url.isEmpty());
         m_btnCheckUpdate->setEnabled(true);
         appendLog(tr("[Updater] New version %1 available!").arg(ver));
-        if (!notes.isEmpty())
+        if (!notes.isEmpty()) {
             appendLog(tr("[Updater] Release notes: %1").arg(notes));
+            m_updateNotesEdit->setMarkdown(notes);
+            m_updateNotesEdit->setVisible(true);
+        }
     });
 
     connect(m_updater, &GithubUpdater::noUpdateAvailable,
@@ -164,6 +167,7 @@ MainWindow::MainWindow(QWidget *parent)
         m_updateStatusLabel->setText(
             tr("<span style='color:#c7d5e0;'>You are up to date.</span>"));
         m_btnCheckUpdate->setEnabled(true);
+        m_updateNotesEdit->setVisible(false);
     });
 
     connect(m_updater, &GithubUpdater::downloadProgress,
@@ -727,6 +731,12 @@ QWidget *MainWindow::createAboutTab()
 
     m_updateStatusLabel = new QLabel(tr("Click the button to check for updates."));
     updateLayout->addWidget(m_updateStatusLabel);
+
+    m_updateNotesEdit = new QTextEdit;
+    m_updateNotesEdit->setReadOnly(true);
+    m_updateNotesEdit->setVisible(false);
+    m_updateNotesEdit->setMinimumHeight(150);
+    updateLayout->addWidget(m_updateNotesEdit);
 
     m_updateProgress = new QProgressBar;
     m_updateProgress->setValue(0);

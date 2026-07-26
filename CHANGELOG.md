@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-07-27
+
+### Added
+- 修改自我更新介面 (Self Update)，現在檢查更新時會以 Markdown 格式直接於介面內顯示 GitHub Release 的發布日誌，方便使用者閱讀改版內容。
+
 ## [1.5.0] - 2026-07-26
 
 ### Changed
