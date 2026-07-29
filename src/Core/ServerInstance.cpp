@@ -102,8 +102,8 @@ QJsonObject ServerInstance::mergedSettings() const
     merged["defaultPort"] = m_profile.defaultPort;
     merged["defaultQueryPort"] = m_profile.defaultQueryPort;
     merged["defaultMaxPlayers"] = m_profile.defaultMaxPlayers;
-    merged["installDir"] = installDir();
-    merged["serverExePath"] = serverExePath();
+    merged["installDir"] = QDir::toNativeSeparators(installDir());
+    merged["serverExePath"] = QDir::toNativeSeparators(serverExePath());
 
     for (auto it = m_settings.constBegin(); it != m_settings.constEnd(); ++it) {
         merged.insert(it.key(), it.value());
