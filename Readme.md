@@ -1,6 +1,7 @@
 本專案測試中 - by Saya  
 目前僅限支援 icarus  
 > 注意: 目前發現些微的記憶體使用異常與權限問題
+> 注意: 本專案目前因為是demo與更新頻率較快所以不適合長期使用  請等待v2.0.0版本
 
 目前進度[TODO.md](TODO.md)  
 更新日誌[CHANGELOG.md](changelog.md)
@@ -15,6 +16,11 @@
 
 - 完整授權條款請參閱專案根目錄的 `LICENSE`。
 - Copyright (c) 2026 Yukimura Saya & The Dream Studio
+
+## 往後的大致規劃
+將會把ui重構成原本預想的樣子  
+現在的ui是暫時測試的demo 預計會在v2.0.0進行重構  
+但大致規劃可以透過 [ToDo](TODO.md) 與 [CHANGELOG](changelog.md) 查看
 
 ### Qt 相關授權說明
 本專案使用 Qt。Qt 與其模組、外掛及相關函式庫不受本專案 Apache-2.0
