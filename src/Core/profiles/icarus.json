@@ -4,7 +4,7 @@
     "sourceType": "steamcmd",
     "steamAppId": "2089300",
     "exeRelativePath": "Icarus/Binaries/Win64/IcarusServer-Win64-Shipping.exe",
-    "launchArgsTemplate": "-SteamServerName={serverName} -Port={port} -QueryPort={queryPort} -MaxPlayers={maxPlayers} {additionalArgs}",
+    "launchArgsTemplate": "-SteamServerName=\"{serverName}\" -Port={port} -QueryPort={queryPort} -MaxPlayers={maxPlayers} -UserDir=\"{installDir}/Icarus\" {additionalArgs}",
     "isJavaApp": false,
     "configFormat": "ini",
     "configFilePath": "Icarus/Saved/Config/WindowsServer/ServerSettings.ini",

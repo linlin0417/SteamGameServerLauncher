@@ -29,16 +29,18 @@ public:
 signals:
     void logMessage(const QString &msg);
 
+public slots:
+    void saveSettingsFromUI();
+
 private slots:
     void onTestWebhook();
     void onBrowseJavaPath();
+    void resetToDefaults();
 
 private:
     void setupUI();
     void rebuildDynamicForm();
     void loadSettingsToUI();
-    void saveSettingsFromUI();
-    void resetToDefaults();
 
     ServerInstance *m_instance = nullptr;
 

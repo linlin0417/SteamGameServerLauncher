@@ -220,6 +220,8 @@ void MainWindow::setupUI()
 
     setCentralWidget(centralWidget);
 
+    connect(m_controlPanel, &ServerControlPanel::startRequested, m_settingsPanel, &ServerSettingsPanel::saveSettingsFromUI);
+
     connect(m_sidebar, &SidebarWidget::profileSelected, this, &MainWindow::onProfileSelected);
     connect(m_sidebar, &SidebarWidget::panelRequested, this, [this](SidebarWidget::PanelType type) {
         onPanelRequested(static_cast<int>(type));

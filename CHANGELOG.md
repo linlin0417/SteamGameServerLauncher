@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-07-30
+
+### Fixed
+- 修復 Icarus 伺服器啟動時，未強制指定 `-UserDir` 導致伺服器讀取錯誤路徑下的設定檔，進而使密碼設定失效的問題。
+- 修復在伺服器設定面板中修改設定後，若未點擊儲存按鈕直接點擊啟動，會導致變更未生效的問題。現在點擊啟動前會自動儲存目前的設定。
+- 在 `ServerInstance` 注入 `installDir` 變數至環境設定中，確保支援自定義啟動參數引用該路徑。
+
 ## [2.0.0] - 2026-07-30
 
 ### Added

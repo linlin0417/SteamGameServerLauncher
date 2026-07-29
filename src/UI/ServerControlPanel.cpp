@@ -104,6 +104,7 @@ void ServerControlPanel::setupUI()
         if (m_instance) m_instance->installOrUpdate();
     });
     connect(m_btnStart, &QPushButton::clicked, this, [this]() {
+        emit startRequested();
         if (m_instance) m_instance->startServer();
     });
     connect(m_btnStop, &QPushButton::clicked, this, [this]() {

@@ -23,6 +23,10 @@ public:
     /// 解除綁定
     void unbindInstance();
 
+signals:
+    void logMessage(const QString &msg);
+    void startRequested();
+
 private:
     void setupUI();
     void updateButtonVisibility();
