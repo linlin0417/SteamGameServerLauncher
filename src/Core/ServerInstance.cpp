@@ -231,7 +231,7 @@ void ServerInstance::applyGameConfig()
         default: formatStr = "none"; break;
     }
 
-    QString configPath = installDir() + "/" + m_profile.configFilePath;
+    QString configPath = installDir() + '/' + m_profile.configFilePath;
     QJsonObject finalMappings;
     QJsonObject currentMerged = mergedSettings();
 
@@ -241,5 +241,11 @@ void ServerInstance::applyGameConfig()
         finalMappings[it.key()] = expandedValue;
     }
 
-    ServerManager::applyGameConfig(formatStr, configPath, m_profile.configSection, finalMappings);
+    qDebug() << "[applyGameConfig] configPath:" << configPath;
+    for (auto it = finalMappings.constBegin(); it != finalMappings.constEnd(); ++it) {
+        qDebug() << "[applyGameConfig]  " << it.key() << "=" << it.value().toString();
+    }
+
+    bool ok = ServerManager::applyGameConfig(formatStr, configPath, m_profile.configSection, finalMappings);
+    qDebug() << "[applyGameConfig] write result:" << ok;
 }

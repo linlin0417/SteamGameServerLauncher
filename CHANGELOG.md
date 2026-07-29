@@ -7,10 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.0.5] - 2026-07-30
+## [2.0.6] - 2026-07-30
 
 ### Fixed
-- 修正 Icarus 設定檔寫入路徑與伺服器實際讀取路徑不一致的問題。由於 Unreal Engine 在 `-UserDir` 指定的目錄下會自動追加專案名稱 `Icarus` 作為子目錄，導致伺服器讀取 `Icarus/Icarus/Saved/...` 而啟動器寫入 `Icarus/Saved/...`。已將 `configFilePath` 對齊至正確的雙層路徑，確保密碼、人數上限等設定能被伺服器正確載入。
+- 移除 Icarus 啟動參數中多餘的 `-UserDir`，該參數會讓 Unreal Engine 改變設定檔的讀取路徑，導致啟動器寫入的 `ServerSettings.ini` 與伺服器實際讀取的檔案不在同一個位置。移除後伺服器將回歸預設路徑 `Icarus/Saved/Config/WindowsServer/`，與啟動器寫入位置一致，密碼與人數上限設定得以正確生效。
+- 新增 `applyGameConfig` 偵錯日誌，啟動時會輸出設定檔完整寫入路徑與鍵值內容，便於日後排查。
 
 ## [2.0.2] - 2026-07-30
 
