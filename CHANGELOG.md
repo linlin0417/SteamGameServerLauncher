@@ -7,11 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.0.3] - 2026-07-30
+## [2.0.4] - 2026-07-30
 
 ### Fixed
 - 修復 Icarus 的 `MaxPlayers` (加入人數上限) 設定無效的問題：將其從啟動參數移至 `ServerSettings.ini` 中，以符合 Icarus 伺服器的讀取規範。
-- 強制將啟動參數中的 `UserDir` 等路徑轉換為 Windows 原生反斜線 (`\`)，徹底解決 Unreal Engine 無法正確解析路徑導致設定檔遭忽略的問題。
+- 強制將啟動參數中的 `UserDir` 等路徑轉換為 Windows 原生反斜線 (`\`)，避免 Unreal Engine 路徑解析錯誤。
+- 修正 Icarus 的 `-UserDir` 參數為 `{installDir}`，解決原先配置導致 Unreal Engine 產生雙重 `Icarus\Icarus` 目錄的問題，確保啟動器寫入設定檔的路徑與伺服器實際讀取路徑一致。
 
 ## [2.0.2] - 2026-07-30
 
