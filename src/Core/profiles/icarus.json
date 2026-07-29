@@ -7,7 +7,7 @@
     "launchArgsTemplate": "-SteamServerName=\"{serverName}\" -Port={port} -QueryPort={queryPort} -UserDir=\"{installDir}\" {additionalArgs}",
     "isJavaApp": false,
     "configFormat": "ini",
-    "configFilePath": "Icarus/Saved/Config/WindowsServer/ServerSettings.ini",
+    "configFilePath": "Icarus/Icarus/Saved/Config/WindowsServer/ServerSettings.ini",
     "configSection": "[/Script/Icarus.DedicatedServerSettings]",
     "configMappings": {
         "JoinPassword": "{password}",
