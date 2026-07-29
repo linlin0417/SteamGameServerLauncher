@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.2] - 2026-07-30
+
+### Fixed
+- 將 MainWindow 中的 QHBoxLayout 替換為 QSplitter，新增左右動態調整大小功能，解決側邊欄擠壓問題。
+- 將 SidebarWidget 的固定寬度改為最小寬度限制，配合 QSplitter 讓使用者自由縮放。
+- 修正側邊欄左上角版本標籤文字寫死為舊版本號的問題，改為動態讀取系統設定的 APP_VERSION。
+
 ## [2.0.1] - 2026-07-30
 
 ### Fixed

@@ -1,5 +1,6 @@
 #include "SidebarWidget.h"
 #include "../Core/GameProfile.h"
+#include "../version.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -17,7 +18,7 @@ SidebarWidget::SidebarWidget(QWidget *parent)
 
 void SidebarWidget::setupUI()
 {
-    setFixedWidth(220);
+    setMinimumWidth(220);
     
     // 設定側邊欄背景，微漸層（非純平）
     setStyleSheet("SidebarWidget { background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1b2838, stop:1 #171d25); }");
@@ -36,7 +37,7 @@ void SidebarWidget::setupUI()
     m_titleLabel = new QLabel("SGSL", headerWidget);
     m_titleLabel->setStyleSheet("color: #ffffff; font-size: 16pt; font-weight: bold;");
     
-    m_versionLabel = new QLabel("v2.0.0", headerWidget);
+    m_versionLabel = new QLabel(QStringLiteral("v%1").arg(APP_VERSION), headerWidget);
     m_versionLabel->setStyleSheet("color: #8f98a0; font-size: 9pt;");
     
     headerLayout->addWidget(m_titleLabel);

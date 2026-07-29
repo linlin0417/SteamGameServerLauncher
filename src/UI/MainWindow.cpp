@@ -23,6 +23,7 @@
 #include <QJsonObject>
 #include <QMessageBox>
 #include <QStackedWidget>
+#include <QSplitter>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -197,10 +198,10 @@ void MainWindow::applyDarkTheme()
 
 void MainWindow::setupUI()
 {
-    QWidget *centralWidget = new QWidget(this);
-    QHBoxLayout *mainLayout = new QHBoxLayout(centralWidget);
-    mainLayout->setContentsMargins(0, 0, 0, 0);
-    mainLayout->setSpacing(0);
+    QSplitter *splitter = new QSplitter(Qt::Horizontal, this);
+    splitter->setHandleWidth(2);
+    splitter->setStyleSheet("QSplitter::handle { background-color: #202d39; }");
+    splitter->setChildrenCollapsible(false);
 
     m_sidebar = new SidebarWidget(this);
     m_contentStack = new QStackedWidget(this);
@@ -215,10 +216,14 @@ void MainWindow::setupUI()
     m_contentStack->addWidget(m_savePanel); // index 2
     m_contentStack->addWidget(m_aboutPanel); // index 3
 
-    mainLayout->addWidget(m_sidebar);
-    mainLayout->addWidget(m_contentStack, 1);
+    splitter->addWidget(m_sidebar);
+    splitter->addWidget(m_contentStack);
+    
+    splitter->setStretchFactor(0, 0);
+    splitter->setStretchFactor(1, 1);
+    splitter->setSizes({260, 790});
 
-    setCentralWidget(centralWidget);
+    setCentralWidget(splitter);
 
     connect(m_controlPanel, &ServerControlPanel::startRequested, m_settingsPanel, &ServerSettingsPanel::saveSettingsFromUI);
 
