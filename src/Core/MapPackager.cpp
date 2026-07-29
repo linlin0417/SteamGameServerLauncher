@@ -6,6 +6,7 @@
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonArray>
 #include <QDateTime>
 #include <QBuffer>
 #include <QImageReader>
@@ -25,6 +26,17 @@ QJsonObject MapMetadata::toJson() const
     obj["timestamp"]            = timestamp;
     obj["launcherVersion"]      = launcherVersion;
     obj["hasPreview"]           = hasPreview;
+    
+    obj["formatVersion"]        = formatVersion;
+    obj["gameProfileId"]        = gameProfileId;
+    obj["gameDisplayName"]      = gameDisplayName;
+    
+    QJsonArray patternsArray;
+    for (const QString &pattern : saveFilePatterns) {
+        patternsArray.append(pattern);
+    }
+    obj["saveFilePatterns"]     = patternsArray;
+    
     return obj;
 }
 
@@ -37,6 +49,20 @@ MapMetadata MapMetadata::fromJson(const QJsonObject &obj)
     m.timestamp            = obj.value("timestamp").toString();
     m.launcherVersion      = obj.value("launcherVersion").toString();
     m.hasPreview           = obj.value("hasPreview").toBool(false);
+    
+    m.formatVersion        = obj.value("formatVersion").toString();
+    if (m.formatVersion.isEmpty()) {
+        m.gameProfileId = "icarus";
+    } else {
+        m.gameProfileId = obj.value("gameProfileId").toString();
+    }
+    m.gameDisplayName      = obj.value("gameDisplayName").toString();
+    
+    QJsonArray patternsArray = obj.value("saveFilePatterns").toArray();
+    for (const QJsonValue &val : patternsArray) {
+        m.saveFilePatterns.append(val.toString());
+    }
+    
     return m;
 }
 
@@ -248,6 +274,20 @@ QPixmap MapPackager::readPreview(const QString &icarusMapPath)
 
     pixmap.loadFromData(imageData);
     return pixmap;
+}
+
+// ---------------------------------------------------------------------------
+// isLegacyFormat - 檢查是否為 v1.x .IcarusMap 格式
+// ---------------------------------------------------------------------------
+
+bool MapPackager::isLegacyFormat(const QString &filePath)
+{
+    bool ok = false;
+    MapMetadata meta = readMetadata(filePath, &ok);
+    if (!ok) {
+        return false;
+    }
+    return meta.formatVersion.isEmpty();
 }
 
 // ---------------------------------------------------------------------------

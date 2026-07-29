@@ -1,0 +1,28 @@
+{
+    "id": "minecraft_paper",
+    "displayName": "Minecraft Server (Paper/Spigot)",
+    "sourceType": "manual",
+    "exeRelativePath": "paper.jar",
+    "launchArgsTemplate": "\"{javaPath}\" -Xmx{maxMemory}G -Xms{minMemory}G -jar \"{exePath}\" --nogui --port {port}",
+    "isJavaApp": true,
+    "configFormat": "properties",
+    "configFilePath": "server.properties",
+    "configMappings": {
+        "server-port": "{port}",
+        "query.port": "{queryPort}",
+        "max-players": "{maxPlayers}",
+        "motd": "{serverName}",
+        "enable-query": "true"
+    },
+    "savesRelativePath": "world",
+    "saveFilePatterns": ["*"],
+    "defaultPort": 25565,
+    "defaultQueryPort": 25565,
+    "defaultMaxPlayers": 20,
+    "extraDefaults": {
+        "serverName": "A Minecraft Server",
+        "maxMemory": 4,
+        "minMemory": 1,
+        "javaPath": "java"
+    }
+}

@@ -34,7 +34,10 @@ public:
     void validateServer(const QString &appId, const QString &installDir);
 
     /// Check if a server update is available by comparing local and online BuildIDs.
-    void checkServerUpdate(const QString &appId, const QString &acfFilePath);
+    void checkServerUpdate(const QString &appId, const QString &installDir);
+
+    /// 執行自訂安裝/更新腳本
+    void runCustomScript(const QString &scriptPath, const QString &workDir);
 
     /// Returns true if an operation is currently in progress.
     bool isBusy() const { return m_busy; }

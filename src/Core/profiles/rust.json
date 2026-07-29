@@ -1,0 +1,19 @@
+{
+    "id": "rust",
+    "displayName": "Rust Dedicated Server",
+    "sourceType": "steamcmd",
+    "steamAppId": "258550",
+    "exeRelativePath": "RustDedicated.exe",
+    "launchArgsTemplate": "-batchmode +server.hostname \"{serverName}\" +server.port {port} +rcon.port {rconPort} +server.maxplayers {maxPlayers} +server.identity \"rust_server\" {additionalArgs}",
+    "isJavaApp": false,
+    "configFormat": "none",
+    "savesRelativePath": "server/rust_server",
+    "saveFilePatterns": ["*.sav", "*.sav.*"],
+    "defaultPort": 28015,
+    "defaultQueryPort": 28016,
+    "defaultMaxPlayers": 50,
+    "extraDefaults": {
+        "serverName": "My Rust Server",
+        "rconPort": 28016
+    }
+}

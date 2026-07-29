@@ -1,0 +1,21 @@
+{
+    "id": "palworld",
+    "displayName": "Palworld Dedicated Server",
+    "sourceType": "steamcmd",
+    "steamAppId": "2394010",
+    "exeRelativePath": "PalServer.exe",
+    "launchArgsTemplate": "-port={port} -queryport={queryPort} -players={maxPlayers} -useperfthreads -NoAsyncLoadingThread -UseMultithreadForDS {additionalArgs}",
+    "isJavaApp": false,
+    "configFormat": "ini",
+    "configFilePath": "Pal/Saved/Config/WindowsServer/PalWorldSettings.ini",
+    "configSection": "[/Script/Pal.PalGameWorldSettings]",
+    "configMappings": {},
+    "savesRelativePath": "Pal/Saved/SaveGames",
+    "saveFilePatterns": ["*"],
+    "defaultPort": 8211,
+    "defaultQueryPort": 27015,
+    "defaultMaxPlayers": 32,
+    "extraDefaults": {
+        "serverName": "My Palworld Server"
+    }
+}

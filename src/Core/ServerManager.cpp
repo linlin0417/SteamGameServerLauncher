@@ -1,5 +1,4 @@
 #include "ServerManager.h"
-#include "../version.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -8,6 +7,7 @@
 #include <QJsonDocument>
 #include <QProcess>
 #include <QTimer>
+#include <QTextStream>
 
 ServerManager::ServerManager(QObject *parent)
     : QObject(parent)
@@ -64,7 +64,7 @@ void ServerManager::startServer(const QStringList &extraArgs)
 
     setState(ServerState::Starting);
     emit logMessage(tr("[Server] Starting: %1 %2")
-                        .arg(m_serverExe, extraArgs.join(' ')));
+                        .arg(m_serverExe, extraArgs.join(QLatin1Char(' '))));
 
     m_process->start(m_serverExe, extraArgs);
 }
@@ -139,40 +139,17 @@ void ServerManager::onProcessReadyRead()
 // Settings helpers
 // ---------------------------------------------------------------------------
 
-QJsonObject ServerManager::defaultSettings()
-{
-    return QJsonObject{
-        {"serverName",    QString(AppConfig::DefaultServerName)},
-        {"password",      QString()},
-        {"adminPassword", QString()},
-        {"maxPlayers",    AppConfig::DefaultMaxPlayers},
-        {"port",          AppConfig::DefaultPort},
-        {"queryPort",     AppConfig::DefaultQueryPort},
-        {"serverInstallDir", QString()},
-        {"serverExePath",    QString()},
-        {"additionalArgs",   QString()},
-        {"discordWebhookUrl", QString()}
-    };
-}
-
 QJsonObject ServerManager::loadSettings(const QString &filePath)
 {
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly)) {
-        return defaultSettings();
+        return QJsonObject();
     }
     QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
     if (doc.isNull() || !doc.isObject()) {
-        return defaultSettings();
+        return QJsonObject();
     }
-
-    // Merge loaded values over defaults so new keys always exist.
-    QJsonObject defaults = defaultSettings();
-    QJsonObject loaded   = doc.object();
-    for (auto it = loaded.constBegin(); it != loaded.constEnd(); ++it) {
-        defaults[it.key()] = it.value();
-    }
-    return defaults;
+    return doc.object();
 }
 
 bool ServerManager::saveSettings(const QString &filePath,
@@ -190,106 +167,137 @@ bool ServerManager::saveSettings(const QString &filePath,
     return true;
 }
 
-QStringList ServerManager::buildLaunchArgs(const QJsonObject &settings)
+bool ServerManager::applyGameConfig(const QString &configFormat,
+                                    const QString &configFilePath,
+                                    const QString &configSection,
+                                    const QJsonObject &mappings)
 {
-    QStringList args;
-
-    const QString name = settings.value("serverName").toString();
-    if (!name.isEmpty())
-        args << QStringLiteral("-SteamServerName=%1").arg(name);
-
-    const int port = settings.value("port").toInt(AppConfig::DefaultPort);
-    args << QStringLiteral("-Port=%1").arg(port);
-
-    const int qport = settings.value("queryPort").toInt(AppConfig::DefaultQueryPort);
-    args << QStringLiteral("-QueryPort=%1").arg(qport);
-
-    const int maxP = settings.value("maxPlayers").toInt(AppConfig::DefaultMaxPlayers);
-    args << QStringLiteral("-MaxPlayers=%1").arg(maxP);
-
-    // Note: Icarus no longer supports setting passwords via command line arguments.
-    // The passwords must be written to ServerSettings.ini instead.
-
-    // Additional free-form arguments
-    const QString extra = settings.value("additionalArgs").toString().trimmed();
-    if (!extra.isEmpty()) {
-        args << extra.split(' ', Qt::SkipEmptyParts);
+    if (configFormat == QStringLiteral("none")) {
+        return true;
     }
 
-    return args;
-}
-
-void ServerManager::applyIcarusSettings(const QJsonObject &settings)
-{
-    const QString installDir = settings.value("serverInstallDir").toString();
-    if (installDir.isEmpty())
-        return;
-
-    const QString iniPath = installDir + "/Icarus/Saved/Config/WindowsServer/ServerSettings.ini";
-    QFileInfo fi(iniPath);
+    QFileInfo fi(configFilePath);
     if (!fi.absoluteDir().exists()) {
-        fi.absoluteDir().mkpath(".");
+        fi.absoluteDir().mkpath(QStringLiteral("."));
     }
 
-    QStringList lines;
-    QFile file(iniPath);
-    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        QTextStream in(&file);
-        while (!in.atEnd()) {
-            lines.append(in.readLine());
-        }
-        file.close();
-    }
-
-    const QString section = "[/Script/Icarus.DedicatedServerSettings]";
-    const QString pw = settings.value("password").toString();
-    const QString adminPw = settings.value("adminPassword").toString();
-
-    int sectionIdx = -1;
-    for (int i = 0; i < lines.size(); ++i) {
-        if (lines[i].trimmed() == section) {
-            sectionIdx = i;
-            break;
-        }
-    }
-
-    if (sectionIdx == -1) {
-        // Section not found, append it
-        if (!lines.isEmpty() && !lines.last().isEmpty()) {
-            lines.append("");
-        }
-        lines.append(section);
-        sectionIdx = lines.size() - 1;
-    }
-
-    // Update or insert keys
-    auto updateKey = [&](const QString &key, const QString &val) {
-        bool found = false;
-        // Search inside the section until the next section or end of file
-        for (int i = sectionIdx + 1; i < lines.size(); ++i) {
-            QString line = lines[i].trimmed();
-            if (line.startsWith('[')) {
-                break; // Reached next section
+    if (configFormat == QStringLiteral("ini")) {
+        QStringList lines;
+        QFile file(configFilePath);
+        if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            QTextStream in(&file);
+            while (!in.atEnd()) {
+                lines.append(in.readLine());
             }
-            if (line.startsWith(key + "=")) {
-                lines[i] = key + "=" + val;
-                found = true;
+            file.close();
+        }
+
+        int sectionIdx = -1;
+        for (int i = 0; i < lines.size(); ++i) {
+            if (lines[i].trimmed() == configSection) {
+                sectionIdx = i;
                 break;
             }
         }
-        if (!found) {
-            lines.insert(sectionIdx + 1, key + "=" + val);
-        }
-    };
 
-    updateKey("JoinPassword", pw);
-    updateKey("AdminPassword", adminPw);
-
-    if (file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate)) {
-        QTextStream out(&file);
-        for (const QString &line : lines) {
-            out << line << "\n";
+        if (sectionIdx == -1) {
+            if (!lines.isEmpty() && !lines.last().isEmpty()) {
+                lines.append(QStringLiteral(""));
+            }
+            lines.append(configSection);
+            sectionIdx = lines.size() - 1;
         }
-        file.close();
+
+        auto updateKey = [&](const QString &key, const QString &val) {
+            bool found = false;
+            for (int i = sectionIdx + 1; i < lines.size(); ++i) {
+                QString line = lines[i].trimmed();
+                if (line.startsWith(QLatin1Char('['))) {
+                    break;
+                }
+                if (line.startsWith(key + QLatin1Char('='))) {
+                    lines[i] = key + QLatin1Char('=') + val;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                lines.insert(sectionIdx + 1, key + QLatin1Char('=') + val);
+            }
+        };
+
+        for (auto it = mappings.constBegin(); it != mappings.constEnd(); ++it) {
+            updateKey(it.key(), it.value().toString());
+        }
+
+        if (file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate)) {
+            QTextStream out(&file);
+            for (const QString &line : lines) {
+                out << line << QLatin1Char('\n');
+            }
+            file.close();
+            return true;
+        }
+        return false;
+    } else if (configFormat == QStringLiteral("properties")) {
+        QStringList lines;
+        QFile file(configFilePath);
+        if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            QTextStream in(&file);
+            while (!in.atEnd()) {
+                lines.append(in.readLine());
+            }
+            file.close();
+        }
+
+        for (auto it = mappings.constBegin(); it != mappings.constEnd(); ++it) {
+            QString key = it.key();
+            QString val = it.value().toString();
+            bool found = false;
+            for (int i = 0; i < lines.size(); ++i) {
+                QString line = lines[i].trimmed();
+                if (line.startsWith(key + QLatin1Char('='))) {
+                    lines[i] = key + QLatin1Char('=') + val;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                lines.append(key + QLatin1Char('=') + val);
+            }
+        }
+
+        if (file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate)) {
+            QTextStream out(&file);
+            for (const QString &line : lines) {
+                out << line << QLatin1Char('\n');
+            }
+            file.close();
+            return true;
+        }
+        return false;
+    } else if (configFormat == QStringLiteral("json")) {
+        QJsonObject jsonObj;
+        QFile file(configFilePath);
+        if (file.open(QIODevice::ReadOnly)) {
+            QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+            if (doc.isObject()) {
+                jsonObj = doc.object();
+            }
+            file.close();
+        }
+
+        for (auto it = mappings.constBegin(); it != mappings.constEnd(); ++it) {
+            jsonObj[it.key()] = it.value();
+        }
+
+        if (file.open(QIODevice::WriteOnly)) {
+            file.write(QJsonDocument(jsonObj).toJson(QJsonDocument::Indented));
+            file.close();
+            return true;
+        }
+        return false;
     }
+
+    return false;
 }

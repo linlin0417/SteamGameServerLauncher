@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-07-30
+
+### Added
+- 新增 `GameProfile` 資料模型與 `GameProfileManager`，實作完整的遊戲設定檔生命週期管理。
+- 新增 `ServerInstance` 抽象層，完整封裝單一伺服器實例的狀態（設定、進程、Discord 通知）。
+- 內建 Icarus、Palworld、Rust、Minecraft Paper 四款預設遊戲設定檔，支援自動化安裝與啟動設定。
+- 新增 `SettingsMigrator`，支援 v1.x 版本設定的無痛自動遷移至 v2.0.0 格式。
+- 新增支援自訂腳本（.bat/.ps1）的安裝與更新模式。
+- 新增 `.SGSLMap` 存檔打包格式，包含版本資訊並完全向下相容舊版的 `.IcarusMap` 格式。
+
+### Changed
+- 將原先專屬於 Icarus 的工具架構，全面重構為通用的多遊戲伺服器管理啟動器。
+- 將 `SteamCmdManager` 參數化，不再硬編碼特定 AppID。
+- 將 `ServerManager` 中的設定檔套用邏輯通用化，支援 INI、Properties、JSON 等多種遊戲設定檔格式。
+- 全面重寫 UI 介面，從舊版 `QTabWidget` 架構改為側邊導覽列（Sidebar）搭配 `QStackedWidget` 的模組化殼層架構。
+- 拆分出獨立的 UI 元件：`SidebarWidget`、`ServerControlPanel`、`ServerSettingsPanel`、`SaveManagerPanel`、`GameProfileDialog` 與 `AboutPanel`。
+- `ServerSettingsPanel` 現能根據 `GameProfile` 動態生成對應的設定表單。
 ## [1.5.2] - 2026-07-27
 
 ### Added

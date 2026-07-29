@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/">
+        <file alias="profiles/icarus.json">../Core/profiles/icarus.json</file>
+        <file alias="profiles/palworld.json">../Core/profiles/palworld.json</file>
+        <file alias="profiles/rust.json">../Core/profiles/rust.json</file>
+        <file alias="profiles/minecraft_paper.json">../Core/profiles/minecraft_paper.json</file>
+    </qresource>
+</RCC>

@@ -36,7 +36,7 @@ void SteamCmdManager::setSteamCmdDir(const QString &dir)
 bool SteamCmdManager::isSteamCmdInstalled() const
 {
     if (m_steamCmdDir.isEmpty()) return false;
-    return QFileInfo::exists(m_steamCmdDir + "/steamcmd.exe");
+    return QFileInfo::exists(m_steamCmdDir + QStringLiteral("/steamcmd.exe"));
 }
 
 void SteamCmdManager::downloadSteamCmd()
@@ -77,7 +77,7 @@ void SteamCmdManager::downloadSteamCmd()
         }
 
         // Save zip file
-        const QString zipPath = m_steamCmdDir + "/steamcmd.zip";
+        const QString zipPath = m_steamCmdDir + QStringLiteral("/steamcmd.zip");
         QFile zipFile(zipPath);
         if (!zipFile.open(QIODevice::WriteOnly)) {
             emit logMessage(tr("[SteamCMD] Failed to write: %1").arg(zipPath));
@@ -121,7 +121,7 @@ void SteamCmdManager::extractZip(const QString &zipPath, const QString &destDir)
     ).arg(QDir::toNativeSeparators(zipPath),
           QDir::toNativeSeparators(destDir));
 
-    ps->start("powershell", QStringList() << "-NoProfile" << "-Command" << cmd);
+    ps->start(QStringLiteral("powershell"), QStringList() << QStringLiteral("-NoProfile") << QStringLiteral("-Command") << cmd);
 }
 
 void SteamCmdManager::installOrUpdateServer(const QString &appId,
@@ -148,10 +148,10 @@ void SteamCmdManager::installOrUpdateServer(const QString &appId,
                         .arg(appId, QDir::toNativeSeparators(installDir)));
 
     const QStringList args = {
-        "+force_install_dir", QDir::toNativeSeparators(installDir),
-        "+login", "anonymous",
-        "+app_update", appId, "validate",
-        "+quit"
+        QStringLiteral("+force_install_dir"), QDir::toNativeSeparators(installDir),
+        QStringLiteral("+login"), QStringLiteral("anonymous"),
+        QStringLiteral("+app_update"), appId, QStringLiteral("validate"),
+        QStringLiteral("+quit")
     };
     runSteamCmd(args);
 }
@@ -162,7 +162,7 @@ void SteamCmdManager::validateServer(const QString &appId,
     installOrUpdateServer(appId, installDir);  // validate flag is included
 }
 
-void SteamCmdManager::checkServerUpdate(const QString &appId, const QString &acfFilePath)
+void SteamCmdManager::checkServerUpdate(const QString &appId, const QString &installDir)
 {
     if (m_busy) {
         emit logMessage(tr("[SteamCMD] Another operation is in progress."));
@@ -174,6 +174,8 @@ void SteamCmdManager::checkServerUpdate(const QString &appId, const QString &acf
         emit updateCheckFinished(false, QString(), QString(), tr("SteamCMD not installed."));
         return;
     }
+
+    QString acfFilePath = QDir(installDir).filePath(QStringLiteral("steamapps/appmanifest_%1.acf").arg(appId));
 
     m_localBuildIdCache.clear();
     QFile file(acfFilePath);
@@ -209,6 +211,74 @@ void SteamCmdManager::checkServerUpdate(const QString &appId, const QString &acf
     runSteamCmd(args);
 }
 
+void SteamCmdManager::runCustomScript(const QString &scriptPath, const QString &workDir)
+{
+    if (m_busy) {
+        emit logMessage(tr("[Script] Another operation is in progress."));
+        return;
+    }
+
+    m_busy = true;
+    m_isCheckingUpdate = false;
+    m_currentOperation = tr("Running custom script: %1").arg(QFileInfo(scriptPath).fileName());
+    emit operationStarted(m_currentOperation);
+    emit logMessage(tr("[Script] Starting script: %1").arg(scriptPath));
+
+    if (m_process) {
+        m_process->deleteLater();
+    }
+    m_process = new QProcess(this);
+    m_process->setProcessChannelMode(QProcess::MergedChannels);
+    m_process->setWorkingDirectory(workDir);
+
+    connect(m_process, &QProcess::readyRead, this, [this]() {
+        while (m_process->canReadLine()) {
+            const QString line = QString::fromUtf8(m_process->readLine()).trimmed();
+            if (!line.isEmpty()) {
+                emit logMessage(QStringLiteral("[Script] %1").arg(line));
+            }
+        }
+    });
+
+    connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+            this, [this](int exitCode, QProcess::ExitStatus status) {
+        if (m_process->bytesAvailable() > 0) {
+            const QString remaining = QString::fromUtf8(m_process->readAll()).trimmed();
+            if (!remaining.isEmpty()) {
+                for (const QString &line : remaining.split(QLatin1Char('\n'))) {
+                    emit logMessage(QStringLiteral("[Script] %1").arg(line.trimmed()));
+                }
+            }
+        }
+        
+        m_busy = false;
+        
+        if (status == QProcess::CrashExit) {
+            emit logMessage(tr("[Script] Process crashed."));
+            emit operationFinished(false, tr("Script process crashed."));
+        } else if (exitCode != 0) {
+            emit logMessage(tr("[Script] Finished with exit code %1.").arg(exitCode));
+            emit operationFinished(false, tr("Script finished with error."));
+        } else {
+            emit logMessage(tr("[Script] Operation completed successfully."));
+            emit operationFinished(true, tr("Script completed successfully."));
+        }
+    });
+
+    QString program;
+    QStringList args;
+    if (scriptPath.endsWith(QStringLiteral(".ps1"), Qt::CaseInsensitive)) {
+        program = QStringLiteral("powershell.exe");
+        args << QStringLiteral("-NoProfile") 
+             << QStringLiteral("-ExecutionPolicy") << QStringLiteral("Bypass") 
+             << QStringLiteral("-File") << scriptPath;
+    } else {
+        program = scriptPath;
+    }
+
+    m_process->start(program, args);
+}
+
 void SteamCmdManager::runSteamCmd(const QStringList &args)
 {
     m_busy = true;
@@ -224,8 +294,8 @@ void SteamCmdManager::runSteamCmd(const QStringList &args)
     connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
             this, &SteamCmdManager::onProcessFinished);
 
-    const QString exe = m_steamCmdDir + "/steamcmd.exe";
-    emit logMessage(tr("[SteamCMD] Running: %1 %2").arg(exe, args.join(' ')));
+    const QString exe = m_steamCmdDir + QStringLiteral("/steamcmd.exe");
+    emit logMessage(tr("[SteamCMD] Running: %1 %2").arg(exe, args.join(QLatin1Char(' '))));
     m_process->start(exe, args);
 }
 
@@ -236,7 +306,7 @@ void SteamCmdManager::onProcessReadyRead()
             QString::fromUtf8(m_process->readLine()).trimmed();
         if (!line.isEmpty()) {
             if (m_isCheckingUpdate) {
-                m_outputCache.append(line + '\n');
+                m_outputCache.append(line + QLatin1Char('\n'));
             } else {
                 emit logMessage(QStringLiteral("[SteamCMD] %1").arg(line));
             }
@@ -252,9 +322,9 @@ void SteamCmdManager::onProcessFinished(int exitCode,
         const QString remaining =
             QString::fromUtf8(m_process->readAll()).trimmed();
         if (!remaining.isEmpty()) {
-            for (const QString &line : remaining.split('\n')) {
+            for (const QString &line : remaining.split(QLatin1Char('\n'))) {
                 if (m_isCheckingUpdate) {
-                    m_outputCache.append(line.trimmed() + '\n');
+                    m_outputCache.append(line.trimmed() + QLatin1Char('\n'));
                 } else {
                     emit logMessage(QStringLiteral("[SteamCMD] %1").arg(line.trimmed()));
                 }
@@ -275,7 +345,7 @@ void SteamCmdManager::onProcessFinished(int exitCode,
         }
 
         QString onlineBuildId;
-        QStringList lines = m_outputCache.split('\n');
+        QStringList lines = m_outputCache.split(QLatin1Char('\n'));
         bool inBranches = false;
         bool inPublic = false;
         QRegularExpression rx(QStringLiteral(R"(\"buildid\"\s+\"(\d+)\")"));

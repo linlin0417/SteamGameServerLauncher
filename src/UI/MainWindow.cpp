@@ -1,221 +1,57 @@
 #include "MainWindow.h"
 #include "../version.h"
-#include "../Core/SteamCmdManager.h"
-#include "../Core/ServerManager.h"
+
+#include "../Core/GameProfileManager.h"
+#include "../Core/ServerInstance.h"
+#include "../Core/SettingsMigrator.h"
 #include "../Core/GithubUpdater.h"
-#include "../Core/MapPackager.h"
-#include "../Core/DiscordManager.h"
+#include "../Core/SteamCmdManager.h"
+
+#include "SidebarWidget.h"
+#include "ServerControlPanel.h"
+#include "ServerSettingsPanel.h"
+#include "SaveManagerPanel.h"
+#include "AboutPanel.h"
+#include "GameProfileDialog.h"
 
 #include <QApplication>
 #include <QCloseEvent>
-#include <QComboBox>
-#include <QCoreApplication>
-#include <QDateTime>
 #include <QDir>
-#include <QStandardPaths>
-#include <QFileDialog>
-#include <QFileInfo>
-#include <QFormLayout>
-#include <QGroupBox>
+#include <QFile>
 #include <QHBoxLayout>
-#include <QLabel>
-#include <QLineEdit>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QMessageBox>
-#include <QProgressBar>
-#include <QPushButton>
-#include <QScrollBar>
-#include <QScrollArea>
-#include <QSpinBox>
-#include <QTabWidget>
-#include <QTextEdit>
-#include <QVBoxLayout>
-
-// ═══════════════════════════════════════════════════════════════════
-//  Construction / Destruction
-// ═══════════════════════════════════════════════════════════════════
+#include <QStackedWidget>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
-    setWindowTitle(QStringLiteral("%1  v%2").arg(AppConfig::AppName, APP_VERSION));
-    setMinimumSize(800, 600);
-    resize(960, 700);
+    setWindowTitle(QStringLiteral("%1 v%2").arg(AppConfig::AppName, APP_VERSION));
+    setMinimumSize(900, 650);
+    resize(1050, 750);
 
     applyDarkTheme();
 
-    // --- Core modules ---
-    m_steamCmd  = new SteamCmdManager(this);
-    m_serverMgr = new ServerManager(this);
-    m_updater   = new GithubUpdater(
-        AppConfig::GithubOwner, AppConfig::GithubRepo, APP_VERSION, this);
-    m_discordMgr = new DiscordManager(this);
+    m_steamCmd = new SteamCmdManager(this);
+    m_updater = new GithubUpdater(AppConfig::GithubOwner, AppConfig::GithubRepo, APP_VERSION, this);
+    m_profileMgr = new GameProfileManager(dataRootDir() + QStringLiteral("/") + AppConfig::ProfilesSubDir, this);
 
-    // Migrate settings from the old location (next to exe) to the new writable data dir
-    const QString oldSettingsPath =
-        QCoreApplication::applicationDirPath() + "/" + AppConfig::ConfigFileName;
-    const QString newSettingsPath = settingsFilePath();
-    if (oldSettingsPath != newSettingsPath
-        && QFileInfo::exists(oldSettingsPath) && !QFileInfo::exists(newSettingsPath)) {
-        QDir().mkpath(QFileInfo(newSettingsPath).absolutePath());
-        QFile::copy(oldSettingsPath, newSettingsPath);
+    checkMigration();
+    setupUI();
+    loadGlobalSettings();
+
+    if (m_currentProfileId.isEmpty()) {
+        const QList<GameProfile> profiles = m_profileMgr->allProfiles();
+        if (!profiles.isEmpty()) {
+            m_currentProfileId = profiles.first().id;
+        }
     }
 
-    // Load settings first to get the configured paths
-    const QJsonObject settings = ServerManager::loadSettings(settingsFilePath());
-    m_discordMgr->setWebhookUrl(settings.value("discordWebhookUrl").toString());
-    QString steamPath = settings.value("steamCmdPath").toString();
-    if (steamPath.isEmpty()) {
-        steamPath = dataRootDir() + "/" + AppConfig::SteamCmdSubDir;
-    }
-    m_steamCmd->setSteamCmdDir(steamPath);
-
-    // --- Central widget with tabs ---
-    QTabWidget *tabs = new QTabWidget;
-    tabs->addTab(createControlTab(),  tr("  伺服器控制  "));
-    tabs->addTab(createSettingsTab(), tr("  伺服器設定  "));
-    tabs->addTab(createMapTab(),      tr("  地圖管理  "));
-    tabs->addTab(createAboutTab(),    tr("  關於 / 更新  "));
-    setCentralWidget(tabs);
-
-    // --- Connect core signals to the log ---
-    connect(m_steamCmd,  &SteamCmdManager::logMessage,
-            this, &MainWindow::appendLog);
-    connect(m_serverMgr, &ServerManager::logMessage,
-            this, &MainWindow::appendLog);
-    connect(m_updater,   &GithubUpdater::logMessage,
-            this, &MainWindow::appendLog);
-    connect(m_discordMgr, &DiscordManager::logMessage,
-            this, &MainWindow::appendLog);
-
-    // SteamCMD operation finished
-    connect(m_steamCmd, &SteamCmdManager::operationFinished,
-            this, [this](bool success, const QString &msg) {
-        m_btnInstallCmd->setEnabled(true);
-        m_btnUpdateServer->setEnabled(true);
-        if (success) {
-            appendLog(tr("[OK] %1").arg(msg));
-            m_discordMgr->sendEmbedMessage(tr("伺服器更新完成"), tr("SteamCMD 已成功完成伺服器更新。"), DiscordManager::ColorSuccess);
-            // 如果成功完成更新，嘗試自動偵測伺服器執行檔
-            autoDetectServerExe();
-        } else {
-            appendLog(tr("[FAIL] %1").arg(msg));
-        }
-    });
-
-    connect(m_steamCmd, &SteamCmdManager::operationStarted,
-            this, [this](const QString &op) {
-        m_btnInstallCmd->setEnabled(false);
-        m_btnUpdateServer->setEnabled(false);
-        m_btnCheckServerUpdate->setEnabled(false);
-        appendLog(tr("[RUN] %1").arg(op));
-    });
-
-    connect(m_steamCmd, &SteamCmdManager::updateCheckFinished,
-            this, [this](bool hasUpdate, const QString &localVer, const QString &onlineVer, const QString &msg) {
-        m_btnCheckServerUpdate->setEnabled(true);
-        m_btnInstallCmd->setEnabled(true);
-        m_btnUpdateServer->setEnabled(true);
-        
-        if (hasUpdate) {
-            appendLog(QStringLiteral("[SteamCMD] [!] 有新版本可用！本地: %1, 線上: %2").arg(localVer, onlineVer));
-            QMessageBox::information(this, tr("更新可用"),
-                tr("發現新版本！\n\n目前本地版本: %1\n最新線上版本: %2\n\n建議您點擊「更新伺服器」來進行更新。").arg(localVer, onlineVer));
-        } else {
-            appendLog(QStringLiteral("[SteamCMD] [V] 伺服器已是最新版本 (版本號: %1)。").arg(localVer));
-            QMessageBox::information(this, tr("已是最新版"),
-                tr("您的伺服器已經是最新版本！\n\n版本號: %1").arg(localVer));
-        }
-    });
-
-    // Server state changes
-    connect(m_serverMgr, &ServerManager::stateChanged,
-            this, [this](ServerManager::ServerState state) {
-        updateServerStateUI();
-        if (state == ServerManager::ServerState::Starting) {
-            m_discordMgr->sendEmbedMessage(tr("伺服器啟動中"), tr("伺服器正在啟動..."), DiscordManager::ColorWarning);
-        } else if (state == ServerManager::ServerState::Running) {
-            m_discordMgr->sendEmbedMessage(tr("伺服器已啟動"), tr("伺服器已成功運行！"), DiscordManager::ColorSuccess);
-        } else if (state == ServerManager::ServerState::Stopped) {
-            m_discordMgr->sendEmbedMessage(tr("伺服器已關閉"), tr("伺服器已停止運行。"), DiscordManager::ColorInfo);
-        }
-    });
-
-    connect(m_serverMgr, &ServerManager::serverCrashed,
-            this, [this](int code) {
-        appendLog(tr("[WARN] Server crashed with exit code %1").arg(code));
-        m_discordMgr->sendEmbedMessage(tr("伺服器崩潰"), tr("伺服器意外關閉，Exit Code: %1").arg(code), DiscordManager::ColorError);
-    });
-
-    // GitHub updater signals
-    connect(m_updater, &GithubUpdater::updateAvailable,
-            this, [this](const QString &ver, const QString &url, const QString &notes, qint64 sizeBytes, const QString &publishDate, const QString &sha256Url) {
-        
-        QString sizeStr = (sizeBytes > 0) ? QString::number(sizeBytes / (1024.0 * 1024.0), 'f', 1) + " MB" : "Unknown Size";
-        QString dateStr = !publishDate.isEmpty() ? QDateTime::fromString(publishDate, Qt::ISODate).toString("yyyy-MM-dd") : "Unknown Date";
-
-        m_updateStatusLabel->setText(
-            tr("<span style='color:#66c0f4;'>New version available: <b>%1</b> (%2, Released: %3)</span>").arg(ver, sizeStr, dateStr));
-        
-        m_pendingDownloadUrl = url;
-        m_pendingSha256Url = sha256Url;
-        
-        m_btnDownloadUpdate->setEnabled(!url.isEmpty());
-        m_btnCheckUpdate->setEnabled(true);
-        appendLog(tr("[Updater] New version %1 available!").arg(ver));
-        if (!notes.isEmpty()) {
-            appendLog(tr("[Updater] Release notes: %1").arg(notes));
-            m_updateNotesEdit->setMarkdown(notes);
-            m_updateNotesEdit->setVisible(true);
-        }
-    });
-
-    connect(m_updater, &GithubUpdater::noUpdateAvailable,
-            this, [this]() {
-        m_updateStatusLabel->setText(
-            tr("<span style='color:#c7d5e0;'>You are up to date.</span>"));
-        m_btnCheckUpdate->setEnabled(true);
-        m_updateNotesEdit->setVisible(false);
-    });
-
-    connect(m_updater, &GithubUpdater::downloadProgress,
-            this, [this](qint64 received, qint64 total) {
-        if (total > 0) {
-            m_updateProgress->setMaximum(static_cast<int>(total));
-            m_updateProgress->setValue(static_cast<int>(received));
-        }
-    });
-
-    connect(m_updater, &GithubUpdater::downloadFinished,
-            this, [this](const QString &path) {
-        m_pendingZipPath = path;
-        appendLog(tr("[Updater] Download complete: %1").arg(path));
-        m_updateStatusLabel->setText(
-            tr("<span style='color:#66c0f4;'>Download complete. Applying update...</span>"));
-        m_btnDownloadUpdate->setText(tr("Applying Update..."));
-        m_btnDownloadUpdate->setEnabled(false);
-        
-        // 自動套用更新並重新啟動
-        m_updater->applyUpdate(path);
-    });
-
-    connect(m_updater, &GithubUpdater::updateError,
-            this, [this](const QString &err) {
-        m_updateStatusLabel->setText(
-            tr("<span style='color:#eb4b4b;'>Error: %1</span>").arg(err));
-        m_btnCheckUpdate->setEnabled(true);
-        m_btnDownloadUpdate->setEnabled(false);
-    });
-
-    // Load settings
-    loadSettingsToUI();
-    updateServerStateUI();
+    switchToProfile(m_currentProfileId);
 }
 
 MainWindow::~MainWindow() = default;
-
-// ═══════════════════════════════════════════════════════════════════
-//  Dark Theme
-// ═══════════════════════════════════════════════════════════════════
 
 void MainWindow::applyDarkTheme()
 {
@@ -359,904 +195,183 @@ void MainWindow::applyDarkTheme()
     qApp->setStyleSheet(style);
 }
 
-// ═══════════════════════════════════════════════════════════════════
-//  Tab: Server Control
-// ═══════════════════════════════════════════════════════════════════
-
-QWidget *MainWindow::createControlTab()
+void MainWindow::setupUI()
 {
-    QWidget *page = new QWidget;
-    QVBoxLayout *layout = new QVBoxLayout(page);
-    layout->setSpacing(12);
-    layout->setContentsMargins(16, 16, 16, 16);
+    QWidget *centralWidget = new QWidget(this);
+    QHBoxLayout *mainLayout = new QHBoxLayout(centralWidget);
+    mainLayout->setContentsMargins(0, 0, 0, 0);
+    mainLayout->setSpacing(0);
 
-    // Status bar
-    QHBoxLayout *statusRow = new QHBoxLayout;
-    m_statusLabel = new QLabel(tr("已停止"));
-    m_statusLabel->setStyleSheet(
-        "font-size: 14pt; font-weight: bold; color: #888;");
-    statusRow->addWidget(m_statusLabel);
-    statusRow->addStretch();
-    layout->addLayout(statusRow);
+    m_sidebar = new SidebarWidget(this);
+    m_contentStack = new QStackedWidget(this);
 
-    // Button row
-    QHBoxLayout *btnRow = new QHBoxLayout;
-    m_btnInstallCmd = new QPushButton(tr("安裝 SteamCMD"));
-    m_btnUpdateServer = new QPushButton(tr("更新伺服器"));
-    m_btnCheckServerUpdate = new QPushButton(tr("檢查更新"));
-    m_btnStart = new QPushButton(tr("啟動伺服器"));
-    m_btnStop = new QPushButton(tr("停止伺服器"));
+    m_controlPanel = new ServerControlPanel(this);
+    m_settingsPanel = new ServerSettingsPanel(this);
+    m_savePanel = new SaveManagerPanel(this);
+    m_aboutPanel = new AboutPanel(m_updater, this);
 
-    m_btnStart->setStyleSheet(
-        "QPushButton { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #79a01b, stop:1 #5c7e10); color: #d2efa9; border: 1px solid #455e09; }"
-        "QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #8ab41f, stop:1 #6b9313); color: #ffffff; }"
-        "QPushButton:disabled { background: #2a2f35; color: #555; border: none; }");
-    m_btnStop->setStyleSheet(
-        "QPushButton { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #3c2a2a, stop:1 #2e1c1c); color: #e8a7a7; border: 1px solid #281515; }"
-        "QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #4f3636, stop:1 #3e2626); color: #ffffff; }"
-        "QPushButton:disabled { background: #2a2f35; color: #555; border: none; }");
+    m_contentStack->addWidget(m_controlPanel); // index 0
+    m_contentStack->addWidget(m_settingsPanel); // index 1
+    m_contentStack->addWidget(m_savePanel); // index 2
+    m_contentStack->addWidget(m_aboutPanel); // index 3
 
-    btnRow->addWidget(m_btnInstallCmd);
-    btnRow->addWidget(m_btnUpdateServer);
-    btnRow->addWidget(m_btnCheckServerUpdate);
-    btnRow->addStretch();
-    btnRow->addWidget(m_btnStart);
-    btnRow->addWidget(m_btnStop);
-    layout->addLayout(btnRow);
+    mainLayout->addWidget(m_sidebar);
+    mainLayout->addWidget(m_contentStack, 1);
 
-    // Progress bar (hidden by default — for future SteamCMD progress)
-    m_progressBar = new QProgressBar;
-    m_progressBar->setVisible(false);
-    layout->addWidget(m_progressBar);
+    setCentralWidget(centralWidget);
 
-    // Log area
-    m_logOutput = new QTextEdit;
-    m_logOutput->setReadOnly(true);
-    m_logOutput->setPlaceholderText(tr("Console output will appear here..."));
-    layout->addWidget(m_logOutput, 1); // stretch factor = 1
-
-    // Connections
-    connect(m_btnInstallCmd,   &QPushButton::clicked, this, &MainWindow::onInstallSteamCmd);
-    connect(m_btnUpdateServer, &QPushButton::clicked, this, &MainWindow::onUpdateServer);
-    connect(m_btnCheckServerUpdate, &QPushButton::clicked, this, &MainWindow::onCheckServerUpdate);
-    connect(m_btnStart,        &QPushButton::clicked, this, &MainWindow::onStartServer);
-    connect(m_btnStop,         &QPushButton::clicked, this, &MainWindow::onStopServer);
-
-    return page;
-}
-
-// ═══════════════════════════════════════════════════════════════════
-//  Tab: Server Settings
-// ═══════════════════════════════════════════════════════════════════
-
-QWidget *MainWindow::createSettingsTab()
-{
-    QScrollArea *scrollArea = new QScrollArea;
-    scrollArea->setWidgetResizable(true);
-    scrollArea->setFrameShape(QFrame::NoFrame);
-
-    QWidget *page = new QWidget;
-    QVBoxLayout *outer = new QVBoxLayout(page);
-    outer->setSpacing(16);
-    outer->setContentsMargins(16, 16, 16, 16);
-
-    // --- Server Parameters group ---
-    QGroupBox *grpParams = new QGroupBox(tr("伺服器參數"));
-    QFormLayout *form = new QFormLayout(grpParams);
-    form->setSpacing(10);
-    form->setContentsMargins(16, 24, 16, 16);
-
-    m_editServerName = new QLineEdit;
-    m_editServerName->setPlaceholderText(tr("My Icarus Server"));
-    form->addRow(tr("伺服器名稱:"), m_editServerName);
-
-    m_editPassword = new QLineEdit;
-    m_editPassword->setEchoMode(QLineEdit::Password);
-    m_editPassword->setPlaceholderText(tr("留空 = 不設密碼"));
-    form->addRow(tr("密碼:"), m_editPassword);
-
-    m_editAdminPassword = new QLineEdit;
-    m_editAdminPassword->setEchoMode(QLineEdit::Password);
-    form->addRow(tr("管理員密碼:"), m_editAdminPassword);
-
-    m_spinMaxPlayers = new QSpinBox;
-    m_spinMaxPlayers->setRange(1, 64);
-    m_spinMaxPlayers->setValue(AppConfig::DefaultMaxPlayers);
-    form->addRow(tr("最大玩家數:"), m_spinMaxPlayers);
-
-    m_spinPort = new QSpinBox;
-    m_spinPort->setRange(1, 65535);
-    m_spinPort->setValue(AppConfig::DefaultPort);
-    form->addRow(tr("遊戲埠 (Port):"), m_spinPort);
-
-    m_spinQueryPort = new QSpinBox;
-    m_spinQueryPort->setRange(1, 65535);
-    m_spinQueryPort->setValue(AppConfig::DefaultQueryPort);
-    form->addRow(tr("查詢埠 (Query Port):"), m_spinQueryPort);
-
-    outer->addWidget(grpParams);
-
-    // --- Paths group ---
-    QGroupBox *grpPaths = new QGroupBox(tr("路徑設定"));
-    QFormLayout *pathForm = new QFormLayout(grpPaths);
-    pathForm->setSpacing(10);
-    pathForm->setContentsMargins(16, 24, 16, 16);
-
-    QHBoxLayout *steamRow = new QHBoxLayout;
-    m_editSteamCmdPath = new QLineEdit;
-    m_editSteamCmdPath->setPlaceholderText(tr("SteamCMD 根目錄..."));
-    QPushButton *btnBrowseSteam = new QPushButton(tr("瀏覽..."));
-    btnBrowseSteam->setMinimumWidth(60);
-    connect(btnBrowseSteam, &QPushButton::clicked, this, &MainWindow::onBrowseSteamCmdPath);
-    steamRow->addWidget(m_editSteamCmdPath, 1);
-    steamRow->addWidget(btnBrowseSteam);
-    pathForm->addRow(tr("SteamCMD 路徑:"), steamRow);
-
-    QHBoxLayout *baseRow = new QHBoxLayout;
-    m_editServerBasePath = new QLineEdit;
-    m_editServerBasePath->setPlaceholderText(tr("伺服器安裝母目錄 (例如: /data)"));
-    QPushButton *btnBrowseBase = new QPushButton(tr("瀏覽..."));
-    btnBrowseBase->setMinimumWidth(60);
-    connect(btnBrowseBase, &QPushButton::clicked, this, &MainWindow::onBrowseServerBasePath);
-    baseRow->addWidget(m_editServerBasePath, 1);
-    baseRow->addWidget(btnBrowseBase);
-    pathForm->addRow(tr("安裝母目錄:"), baseRow);
-
-    QHBoxLayout *exeRow = new QHBoxLayout;
-    m_editServerExePath = new QLineEdit;
-    m_editServerExePath->setPlaceholderText(tr("伺服器執行檔路徑..."));
-    QPushButton *btnBrowse = new QPushButton(tr("瀏覽..."));
-    btnBrowse->setMinimumWidth(60);
-    connect(btnBrowse, &QPushButton::clicked, this, &MainWindow::onBrowseServerExe);
-    exeRow->addWidget(m_editServerExePath, 1);
-    exeRow->addWidget(btnBrowse);
-    pathForm->addRow(tr("伺服器執行檔:"), exeRow);
-
-    m_editAdditionalArgs = new QLineEdit;
-    m_editAdditionalArgs->setPlaceholderText(tr("額外的啟動參數 (可選)"));
-    pathForm->addRow(tr("額外參數:"), m_editAdditionalArgs);
-
-    outer->addWidget(grpPaths);
-
-    // --- Discord Notifications group ---
-    QGroupBox *grpDiscord = new QGroupBox(tr("Discord 通知設定(disocrd Webhook)"));
-    QFormLayout *discordForm = new QFormLayout(grpDiscord);
-    discordForm->setSpacing(10);
-    discordForm->setContentsMargins(16, 24, 16, 16);
-
-    QHBoxLayout *webhookRow = new QHBoxLayout;
-    m_editDiscordWebhook = new QLineEdit;
-    m_editDiscordWebhook->setPlaceholderText(tr("https://discord.com/api/webhooks/..."));
-    m_editDiscordWebhook->setEchoMode(QLineEdit::PasswordEchoOnEdit);
-    m_btnTestDiscordWebhook = new QPushButton(tr("發送測試通知"));
-    connect(m_btnTestDiscordWebhook, &QPushButton::clicked, this, [this]() {
-        QString url = m_editDiscordWebhook->text().trimmed();
-        if (url.isEmpty()) {
-            QMessageBox::warning(this, tr("錯誤"), tr("請先輸入 Webhook URL。"));
-            return;
-        }
-        m_discordMgr->setWebhookUrl(url);
-        m_discordMgr->sendEmbedMessage(
-            tr("Webhook 測試"),
-            tr("這是一則測試訊息，如果看到這則訊息，代表您的 Webhook 設定正確！"),
-            DiscordManager::ColorSuccess
-        );
-        appendLog(tr("[Discord] 測試通知發送請求已送出。"));
+    connect(m_sidebar, &SidebarWidget::profileSelected, this, &MainWindow::onProfileSelected);
+    connect(m_sidebar, &SidebarWidget::panelRequested, this, [this](SidebarWidget::PanelType type) {
+        onPanelRequested(static_cast<int>(type));
     });
-    webhookRow->addWidget(m_editDiscordWebhook, 1);
-    webhookRow->addWidget(m_btnTestDiscordWebhook);
-    discordForm->addRow(tr("Webhook URL:"), webhookRow);
+    connect(m_sidebar, &SidebarWidget::addProfileRequested, this, &MainWindow::onAddProfile);
 
-    outer->addWidget(grpDiscord);
+    m_sidebar->setProfiles(m_profileMgr->allProfiles());
 
-    // Buttons
-    QHBoxLayout *btnRow = new QHBoxLayout;
-    QPushButton *btnSave = new QPushButton(tr("儲存設定"));
-    QPushButton *btnReset = new QPushButton(tr("重置為預設"));
-    btnRow->addStretch();
-    btnRow->addWidget(btnSave);
-    btnRow->addWidget(btnReset);
-    outer->addLayout(btnRow);
-
-    outer->addStretch();
-
-    connect(btnSave, &QPushButton::clicked, this, &MainWindow::saveSettingsFromUI);
-    connect(btnReset, &QPushButton::clicked, this, [this]() {
-        QJsonObject defaults = ServerManager::defaultSettings();
-        // Temporarily save defaults, then reload
-        ServerManager::saveSettings(settingsFilePath(), defaults);
-        loadSettingsToUI();
-        m_discordMgr->setWebhookUrl(m_editDiscordWebhook->text());
-        appendLog(tr("Settings reset to defaults."));
+    connect(m_profileMgr, &GameProfileManager::profilesChanged, this, [this]() {
+        m_sidebar->setProfiles(m_profileMgr->allProfiles());
     });
-
-    scrollArea->setWidget(page);
-    return scrollArea;
 }
 
-// ═══════════════════════════════════════════════════════════════════
-//  Tab: Map Management
-// ═══════════════════════════════════════════════════════════════════
-
-QWidget *MainWindow::createMapTab()
+void MainWindow::onProfileSelected(const QString &profileId)
 {
-    QWidget *page = new QWidget;
-    QVBoxLayout *outer = new QVBoxLayout(page);
-    outer->setSpacing(16);
-    outer->setContentsMargins(16, 16, 16, 16);
+    switchToProfile(profileId);
+    m_contentStack->setCurrentIndex(0);
+}
 
-    // --- 匯出區塊 ---
-    QGroupBox *grpExport = new QGroupBox(tr("匯出地圖"));
-    QVBoxLayout *exportLayout = new QVBoxLayout(grpExport);
-    exportLayout->setSpacing(10);
-    exportLayout->setContentsMargins(16, 24, 16, 16);
+void MainWindow::switchToProfile(const QString &profileId)
+{
+    if (m_currentInstance && m_currentInstance->isRunning()) {
+        QMessageBox::warning(this, tr("伺服器運行中"), tr("請先停止目前正在運行的伺服器，再切換設定檔。"));
+        m_sidebar->setCurrentProfileId(m_currentProfileId);
+        return;
+    }
 
-    QFormLayout *exportForm = new QFormLayout;
-    exportForm->setSpacing(10);
+    if (m_controlPanel) {
+        m_controlPanel->unbindInstance();
+    }
+    if (m_settingsPanel) {
+        m_settingsPanel->unbindInstance();
+    }
 
-    // 存檔選擇下拉選單
-    QHBoxLayout *prospectRow = new QHBoxLayout;
-    m_comboProspects = new QComboBox;
-    m_comboProspects->setMinimumWidth(250);
-    m_btnRefreshProspects = new QPushButton(tr("重新整理"));
-    m_btnRefreshProspects->setMinimumWidth(80);
-    prospectRow->addWidget(m_comboProspects, 1);
-    prospectRow->addWidget(m_btnRefreshProspects);
-    exportForm->addRow(tr("選擇存檔:"), prospectRow);
+    if (m_currentInstance) {
+        m_currentInstance->deleteLater();
+        m_currentInstance = nullptr;
+    }
 
-    // 地圖包名稱
-    m_editMapPackageName = new QLineEdit;
-    m_editMapPackageName->setPlaceholderText(tr("輸入地圖包的顯示名稱..."));
-    exportForm->addRow(tr("地圖包名稱:"), m_editMapPackageName);
+    if (profileId.isEmpty()) {
+        return;
+    }
 
-    // 備註
-    m_editMapNotes = new QTextEdit;
-    m_editMapNotes->setMaximumHeight(72);
-    m_editMapNotes->setPlaceholderText(tr("輸入此地圖備份的備註說明（可選）..."));
-    exportForm->addRow(tr("備註:"), m_editMapNotes);
+    GameProfile profile = m_profileMgr->profileById(profileId);
+    if (profile.id.isEmpty()) {
+        return;
+    }
 
-    // 預覽圖片選擇
-    QHBoxLayout *previewRow = new QHBoxLayout;
-    m_editPreviewImagePath = new QLineEdit;
-    m_editPreviewImagePath->setPlaceholderText(tr("預覽圖片路徑（可選）..."));
-    m_editPreviewImagePath->setReadOnly(true);
-    QPushButton *btnBrowsePreview = new QPushButton(tr("瀏覽..."));
-    btnBrowsePreview->setMinimumWidth(60);
-    previewRow->addWidget(m_editPreviewImagePath, 1);
-    previewRow->addWidget(btnBrowsePreview);
-    exportForm->addRow(tr("預覽圖片:"), previewRow);
+    m_currentInstance = new ServerInstance(m_steamCmd, this);
+    m_currentInstance->setProfile(profile);
 
-    exportLayout->addLayout(exportForm);
+    const QString installDir = dataRootDir() + QStringLiteral("/instances/") + profileId;
+    m_currentInstance->setInstallDir(installDir);
 
-    // 匯出按鈕靠右
-    QHBoxLayout *exportBtnRow = new QHBoxLayout;
-    m_btnExportMap = new QPushButton(tr("匯出地圖包"));
-    m_btnExportMap->setStyleSheet(
-        "QPushButton { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #79a01b, stop:1 #5c7e10); color: #d2efa9; border: 1px solid #455e09; }"
-        "QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #8ab41f, stop:1 #6b9313); color: #ffffff; }"
-        "QPushButton:disabled { background: #2a2f35; color: #555; border: none; }");
-    exportBtnRow->addStretch();
-    exportBtnRow->addWidget(m_btnExportMap);
-    exportLayout->addLayout(exportBtnRow);
+    const QString settingsPath = installDir + QStringLiteral(".json");
+    m_currentInstance->loadSettings(settingsPath);
 
-    outer->addWidget(grpExport);
+    QString steamPath = m_currentInstance->settings().value(QStringLiteral("steamCmdPath")).toString();
+    if (steamPath.isEmpty()) {
+        steamPath = dataRootDir() + QStringLiteral("/") + AppConfig::SteamCmdSubDir;
+    }
+    m_steamCmd->setSteamCmdDir(steamPath);
 
-    // --- 匯入區塊 ---
-    QGroupBox *grpImport = new QGroupBox(tr("匯入地圖"));
-    QVBoxLayout *importLayout = new QVBoxLayout(grpImport);
-    importLayout->setSpacing(10);
-    importLayout->setContentsMargins(16, 24, 16, 16);
+    if (m_controlPanel) {
+        m_controlPanel->bindInstance(m_currentInstance);
+    }
+    if (m_settingsPanel) {
+        m_settingsPanel->bindInstance(m_currentInstance);
+    }
 
-    QHBoxLayout *importContent = new QHBoxLayout;
-    importContent->setSpacing(16);
+    m_sidebar->setCurrentProfileId(profileId);
+    m_currentProfileId = profileId;
+}
 
-    // 左側：匯入按鈕與資訊
-    QVBoxLayout *importLeft = new QVBoxLayout;
-    m_btnImportMap = new QPushButton(tr("選擇 .IcarusMap 檔案..."));
-    importLeft->addWidget(m_btnImportMap);
+void MainWindow::onPanelRequested(int type)
+{
+    m_contentStack->setCurrentIndex(type);
+}
 
-    m_mapInfoLabel = new QLabel(tr("尚未選擇地圖包檔案。"));
-    m_mapInfoLabel->setWordWrap(true);
-    m_mapInfoLabel->setStyleSheet("color: #8f98a0; font-size: 9pt; padding: 8px;");
-    m_mapInfoLabel->setMinimumHeight(80);
-    importLeft->addWidget(m_mapInfoLabel);
-    importLeft->addStretch();
-    importContent->addLayout(importLeft, 1);
+void MainWindow::onAddProfile()
+{
+    GameProfileDialog dialog(this);
+    if (dialog.exec() == QDialog::Accepted) {
+        GameProfile newProfile = dialog.resultProfile();
+        m_profileMgr->saveProfile(newProfile);
+        m_profileMgr->reload();
+        switchToProfile(newProfile.id);
+    }
+}
 
-    // 右側：預覽圖片
-    m_previewImage = new QLabel;
-    m_previewImage->setFixedSize(200, 150);
-    m_previewImage->setAlignment(Qt::AlignCenter);
-    m_previewImage->setStyleSheet(
-        "QLabel { background-color: #101214; border: 1px solid #2a3746; border-radius: 4px; color: #555; }");
-    m_previewImage->setText(tr("無預覽圖"));
-    importContent->addWidget(m_previewImage);
-
-    importLayout->addLayout(importContent);
-
-    outer->addWidget(grpImport);
-
-    outer->addStretch();
-
-    // --- 連接信號 ---
-    connect(m_btnRefreshProspects, &QPushButton::clicked,
-            this, &MainWindow::refreshProspectList);
-    connect(btnBrowsePreview, &QPushButton::clicked, this, [this]() {
-        const QString path = QFileDialog::getOpenFileName(
-            this, tr("選擇預覽圖片"), QString(),
-            tr("圖片檔案 (*.png *.jpg *.jpeg *.bmp);;所有檔案 (*)"));
-        if (!path.isEmpty()) {
-            m_editPreviewImagePath->setText(QDir::toNativeSeparators(path));
+void MainWindow::checkMigration()
+{
+    if (SettingsMigrator::needsMigration(dataRootDir())) {
+        if (SettingsMigrator::migrate(dataRootDir())) {
+            m_profileMgr->reload();
         }
-    });
-    connect(m_btnExportMap, &QPushButton::clicked,
-            this, &MainWindow::onExportMap);
-    connect(m_btnImportMap, &QPushButton::clicked,
-            this, &MainWindow::onImportMap);
-
-    // 初始化存檔列表
-    refreshProspectList();
-
-    return page;
+    }
 }
 
-// ═══════════════════════════════════════════════════════════════════
-//  Tab: About / Update
-// ═══════════════════════════════════════════════════════════════════
-
-QWidget *MainWindow::createAboutTab()
+void MainWindow::loadGlobalSettings()
 {
-    QWidget *page = new QWidget;
-    QVBoxLayout *layout = new QVBoxLayout(page);
-    layout->setSpacing(16);
-    layout->setContentsMargins(32, 32, 32, 32);
-
-    // App name
-    QLabel *titleLabel = new QLabel(
-        QStringLiteral("<h1 style='color:#ffffff;'>%1</h1>").arg(AppConfig::AppName));
-    layout->addWidget(titleLabel);
-
-    m_versionLabel = new QLabel(
-        tr("Version: <b>%1</b>").arg(APP_VERSION));
-    m_versionLabel->setStyleSheet("font-size: 12pt;");
-    layout->addWidget(m_versionLabel);
-
-    QLabel *descLabel = new QLabel(
-        tr("A Steam game server launcher"));
-    descLabel->setWordWrap(true);
-    descLabel->setStyleSheet("color: #aaa; font-size: 10pt;");
-    layout->addWidget(descLabel);
-
-    layout->addSpacing(16);
-
-    // Update section
-    QGroupBox *grpUpdate = new QGroupBox(tr("Self Update"));
-    QVBoxLayout *updateLayout = new QVBoxLayout(grpUpdate);
-    updateLayout->setSpacing(10);
-    updateLayout->setContentsMargins(16, 24, 16, 16);
-
-    m_updateStatusLabel = new QLabel(tr("Click the button to check for updates."));
-    updateLayout->addWidget(m_updateStatusLabel);
-
-    m_updateNotesEdit = new QTextEdit;
-    m_updateNotesEdit->setReadOnly(true);
-    m_updateNotesEdit->setVisible(false);
-    m_updateNotesEdit->setMinimumHeight(150);
-    updateLayout->addWidget(m_updateNotesEdit);
-
-    m_updateProgress = new QProgressBar;
-    m_updateProgress->setValue(0);
-    m_updateProgress->setVisible(false);
-    updateLayout->addWidget(m_updateProgress);
-
-    QHBoxLayout *updateBtnRow = new QHBoxLayout;
-    m_btnCheckUpdate = new QPushButton(tr("Check for Updates"));
-    m_btnDownloadUpdate = new QPushButton(tr("Download Update"));
-    m_btnDownloadUpdate->setEnabled(false);
-    updateBtnRow->addWidget(m_btnCheckUpdate);
-    updateBtnRow->addWidget(m_btnDownloadUpdate);
-    updateBtnRow->addStretch();
-    updateLayout->addLayout(updateBtnRow);
-
-    layout->addWidget(grpUpdate);
-
-    layout->addStretch();
-
-    // Footer
-    QLabel *footerLabel = new QLabel(
-        QStringLiteral("<a href='https://github.com/%1/%2' style='color:#58a6ff;'>"
-                       "GitHub Repository</a>")
-            .arg(AppConfig::GithubOwner, AppConfig::GithubRepo));
-    footerLabel->setOpenExternalLinks(true);
-    layout->addWidget(footerLabel);
-
-    // Connections
-    connect(m_btnCheckUpdate, &QPushButton::clicked, this, &MainWindow::onCheckForUpdate);
-    connect(m_btnDownloadUpdate, &QPushButton::clicked, this, [this]() {
-        if (!m_pendingDownloadUrl.isEmpty()) {
-            m_updateProgress->setVisible(true);
-            m_updateProgress->setValue(0);
-            m_updater->downloadUpdate(m_pendingDownloadUrl, m_pendingSha256Url);
-            m_btnDownloadUpdate->setEnabled(false);
-            m_btnCheckUpdate->setEnabled(false);
+    QFile file(globalSettingsPath());
+    if (file.open(QIODevice::ReadOnly)) {
+        QByteArray data = file.readAll();
+        QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (doc.isObject()) {
+            QJsonObject obj = doc.object();
+            m_currentProfileId = obj.value(QStringLiteral("lastSelectedProfile")).toString();
         }
-    });
-
-    return page;
-}
-
-// ═══════════════════════════════════════════════════════════════════
-//  Action Handlers
-// ═══════════════════════════════════════════════════════════════════
-
-void MainWindow::onInstallSteamCmd()
-{
-    appendLog(tr("--- Installing SteamCMD ---"));
-    m_steamCmd->downloadSteamCmd();
-}
-
-void MainWindow::onUpdateServer()
-{
-    saveSettingsFromUI(); // persist first
-    const QString installDir = serverInstallDir();
-    appendLog(tr("--- Updating Icarus Server (App %1) ---").arg(AppConfig::IcarusAppId));
-    m_steamCmd->installOrUpdateServer(AppConfig::IcarusAppId, installDir);
-}
-
-void MainWindow::onCheckServerUpdate()
-{
-    m_btnCheckServerUpdate->setEnabled(false);
-    saveSettingsFromUI();
-    
-    const QString installDir = serverInstallDir();
-    // ACF 檔在使用 force_install_dir 時，通常會位於安裝目錄下的 steamapps 資料夾
-    const QString acfPath = installDir + "/steamapps/appmanifest_" + AppConfig::IcarusAppId + ".acf";
-    
-    appendLog(tr("--- 檢查 Icarus 伺服器更新 (App %1) ---").arg(AppConfig::IcarusAppId));
-    m_steamCmd->checkServerUpdate(AppConfig::IcarusAppId, acfPath);
-}
-
-void MainWindow::onStartServer()
-{
-    saveSettingsFromUI();
-
-    const QJsonObject settings =
-        ServerManager::loadSettings(settingsFilePath());
-    const QString exePath = m_editServerExePath->text().trimmed();
-
-    if (exePath.isEmpty()) {
-        appendLog(tr("Please set the server executable path in the Settings tab."));
-        return;
-    }
-
-    m_serverMgr->setServerExecutable(exePath);
-    ServerManager::applyIcarusSettings(settings);
-    m_serverMgr->startServer(ServerManager::buildLaunchArgs(settings));
-}
-
-void MainWindow::onStopServer()
-{
-    m_serverMgr->stopServer();
-}
-
-void MainWindow::onCheckForUpdate()
-{
-    m_btnCheckUpdate->setEnabled(false);
-    m_updateStatusLabel->setText(tr("Checking..."));
-    m_pendingDownloadUrl.clear();
-    m_pendingZipPath.clear();
-    m_btnDownloadUpdate->setText(tr("Download Update"));
-    m_btnDownloadUpdate->setEnabled(false);
-    m_updateProgress->setVisible(false);
-    m_updateProgress->setValue(0);
-    m_updater->checkForUpdate();
-}
-
-void MainWindow::onBrowseServerExe()
-{
-    const QString path = QFileDialog::getOpenFileName(
-        this, tr("Select Server Executable"), QString(),
-        tr("Executable (*.exe);;All Files (*)"));
-    if (!path.isEmpty()) {
-        m_editServerExePath->setText(QDir::toNativeSeparators(path));
     }
 }
 
-void MainWindow::onBrowseSteamCmdPath()
+void MainWindow::saveGlobalSettings()
 {
-    const QString path = QFileDialog::getExistingDirectory(
-        this, tr("Select SteamCMD Directory"), m_editSteamCmdPath->text());
-    if (!path.isEmpty()) {
-        m_editSteamCmdPath->setText(QDir::toNativeSeparators(path));
-    }
-}
+    QJsonObject obj;
+    obj.insert(QStringLiteral("lastSelectedProfile"), m_currentProfileId);
 
-void MainWindow::onBrowseServerBasePath()
-{
-    const QString path = QFileDialog::getExistingDirectory(
-        this, tr("Select Server Base Directory"), m_editServerBasePath->text());
-    if (!path.isEmpty()) {
-        m_editServerBasePath->setText(QDir::toNativeSeparators(path));
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-//  Map Management Actions
-// ═══════════════════════════════════════════════════════════════════
-
-QString MainWindow::prospectsDir() const
-{
-    return serverInstallDir()
-        + "/Icarus/Saved/PlayerData/DedicatedServer/Prospects";
-}
-
-void MainWindow::refreshProspectList()
-{
-    if (!m_comboProspects) {
-        return;
-    }
-
-    m_comboProspects->clear();
-
-    const QString dir = prospectsDir();
-    QDir prospectDir(dir);
-    if (!prospectDir.exists()) {
-        appendLog(tr("[地圖] 存檔目錄不存在: %1").arg(dir));
-        return;
-    }
-
-    // 列出所有 .json 檔案，排除 .backup
-    QStringList filters;
-    filters << "*.json";
-    QFileInfoList entries = prospectDir.entryInfoList(
-        filters, QDir::Files, QDir::Name);
-
-    for (const QFileInfo &fi : entries) {
-        // 排除 .json.backup 檔案
-        if (fi.fileName().endsWith(".backup")) {
-            continue;
-        }
-        m_comboProspects->addItem(fi.baseName(), fi.absoluteFilePath());
-    }
-
-    if (m_comboProspects->count() == 0) {
-        appendLog(tr("[地圖] 在 %1 中未找到任何地圖存檔。").arg(dir));
-    } else {
-        appendLog(tr("[地圖] 找到 %1 個地圖存檔。")
-                      .arg(m_comboProspects->count()));
-    }
-}
-
-void MainWindow::onExportMap()
-{
-    // 檢查伺服器運行狀態
-    if (m_serverMgr->isRunning()) {
-        QMessageBox::warning(this, tr("無法匯出"),
-            tr("伺服器正在運行中，請先停止伺服器後再進行匯出操作，\n"
-               "以避免存檔檔案損毀。"));
-        return;
-    }
-
-    // 驗證使用者輸入
-    if (m_comboProspects->count() == 0 || m_comboProspects->currentIndex() < 0) {
-        QMessageBox::warning(this, tr("匯出失敗"),
-            tr("請先選擇要匯出的地圖存檔。\n"
-               "若列表為空，請確認伺服器已安裝且存檔目錄存在。"));
-        return;
-    }
-
-    const QString packageName = m_editMapPackageName->text().trimmed();
-    if (packageName.isEmpty()) {
-        QMessageBox::warning(this, tr("匯出失敗"),
-            tr("請輸入地圖包名稱。"));
-        return;
-    }
-
-    const QString prospectName = m_comboProspects->currentText();
-    const QString prospDir = prospectsDir();
-
-    // 組裝中繼資料
-    MapMetadata metadata;
-    metadata.packageName = packageName;
-    metadata.originalProspectName = prospectName;
-    metadata.notes = m_editMapNotes->toPlainText().trimmed();
-    metadata.timestamp = QDateTime::currentDateTime().toString(Qt::ISODate);
-    metadata.launcherVersion = QString(APP_VERSION);
-
-    const QString previewPath = m_editPreviewImagePath->text().trimmed();
-    metadata.hasPreview = !previewPath.isEmpty()
-                          && QFileInfo::exists(previewPath);
-
-    // 彈出儲存對話框
-    const QString defaultName = packageName + ".IcarusMap";
-    const QString exportPath = QFileDialog::getSaveFileName(
-        this, tr("匯出地圖包"), defaultName,
-        tr("Icarus 地圖包 (*.IcarusMap);;所有檔案 (*)"));
-
-    if (exportPath.isEmpty()) {
-        return; // 使用者取消
-    }
-
-    // 執行匯出
-    appendLog(tr("[地圖] 正在匯出地圖包: %1 ...").arg(packageName));
-    QString errorMsg;
-    const bool success = MapPackager::exportMap(
-        exportPath, prospDir, prospectName, metadata, previewPath, &errorMsg);
-
-    if (success) {
-        appendLog(tr("[地圖] 匯出成功: %1").arg(exportPath));
-        m_discordMgr->sendEmbedMessage(tr("地圖匯出完成"), tr("已成功匯出地圖包: %1").arg(packageName), DiscordManager::ColorSuccess);
-        QMessageBox::information(this, tr("匯出成功"),
-            tr("地圖包已成功匯出至:\n%1").arg(exportPath));
-    } else {
-        appendLog(tr("[地圖] 匯出失敗: %1").arg(errorMsg));
-        QMessageBox::critical(this, tr("匯出失敗"),
-            tr("地圖包匯出失敗:\n%1").arg(errorMsg));
-    }
-}
-
-void MainWindow::onImportMap()
-{
-    // 檢查伺服器運行狀態
-    if (m_serverMgr->isRunning()) {
-        QMessageBox::warning(this, tr("無法匯入"),
-            tr("伺服器正在運行中，請先停止伺服器後再進行匯入操作，\n"
-               "以避免存檔檔案損毀。"));
-        return;
-    }
-
-    // 選擇檔案
-    const QString filePath = QFileDialog::getOpenFileName(
-        this, tr("選擇地圖包檔案"), QString(),
-        tr("Icarus 地圖包 (*.IcarusMap);;所有檔案 (*)"));
-
-    if (filePath.isEmpty()) {
-        return; // 使用者取消
-    }
-
-    // 讀取中繼資料
-    bool metaOk = false;
-    MapMetadata metadata = MapPackager::readMetadata(filePath, &metaOk);
-    if (!metaOk) {
-        QMessageBox::critical(this, tr("讀取失敗"),
-            tr("無法讀取地圖包的中繼資料。\n檔案可能已損壞或格式不正確。"));
-        return;
-    }
-
-    // 顯示中繼資料
-    QString infoText = tr(
-        "<b>地圖包名稱:</b> %1<br>"
-        "<b>原始存檔:</b> %2<br>"
-        "<b>匯出時間:</b> %3<br>"
-        "<b>啟動器版本:</b> %4")
-        .arg(metadata.packageName.toHtmlEscaped(),
-             metadata.originalProspectName.toHtmlEscaped(),
-             metadata.timestamp.toHtmlEscaped(),
-             metadata.launcherVersion.toHtmlEscaped());
-    if (!metadata.notes.isEmpty()) {
-        infoText += tr("<br><b>備註:</b> %1")
-                        .arg(metadata.notes.toHtmlEscaped());
-    }
-    m_mapInfoLabel->setText(infoText);
-
-    // 讀取並顯示預覽圖
-    QPixmap preview = MapPackager::readPreview(filePath);
-    if (!preview.isNull()) {
-        m_previewImage->setPixmap(
-            preview.scaled(200, 150, Qt::KeepAspectRatio,
-                           Qt::SmoothTransformation));
-    } else {
-        m_previewImage->setText(tr("無預覽圖"));
-    }
-
-    // 確認匯入
-    const auto reply = QMessageBox::question(
-        this, tr("確認匯入"),
-        tr("即將匯入地圖包:\n\n"
-           "名稱: %1\n"
-           "原始存檔: %2\n\n"
-           "是否繼續？")
-            .arg(metadata.packageName, metadata.originalProspectName),
-        QMessageBox::Yes | QMessageBox::No);
-
-    if (reply != QMessageBox::Yes) {
-        return;
-    }
-
-    // 檢查目標目錄中是否存在同名檔案
-    const QString targetDir = prospectsDir();
-    const QString targetFile = targetDir + '/'
-        + metadata.originalProspectName + ".json";
-    bool overwrite = false;
-
-    if (QFileInfo::exists(targetFile)) {
-        const auto overwriteReply = QMessageBox::question(
-            this, tr("檔案已存在"),
-            tr("目標目錄中已存在同名的存檔檔案:\n%1\n\n"
-               "是否覆寫？").arg(targetFile),
-            QMessageBox::Yes | QMessageBox::No);
-
-        if (overwriteReply != QMessageBox::Yes) {
-            appendLog(tr("[地圖] 使用者取消匯入（同名檔案衝突）。"));
-            return;
-        }
-        overwrite = true;
-    }
-
-    // 執行匯入
-    appendLog(tr("[地圖] 正在匯入地圖包: %1 ...")
-                  .arg(metadata.packageName));
-    QString errorMsg;
-    const bool success = MapPackager::importMap(
-        filePath, targetDir, overwrite, &errorMsg);
-
-    if (success) {
-        appendLog(tr("[地圖] 匯入成功: %1")
-                      .arg(metadata.originalProspectName));
-        m_discordMgr->sendEmbedMessage(tr("地圖匯入完成"), tr("已成功匯入地圖包: %1").arg(metadata.packageName), DiscordManager::ColorSuccess);
-        QMessageBox::information(this, tr("匯入成功"),
-            tr("地圖包已成功匯入。\n"
-               "存檔名稱: %1").arg(metadata.originalProspectName));
-        // 重新整理存檔列表
-        refreshProspectList();
-    } else {
-        appendLog(tr("[地圖] 匯入失敗: %1").arg(errorMsg));
-        QMessageBox::critical(this, tr("匯入失敗"),
-            tr("地圖包匯入失敗:\n%1").arg(errorMsg));
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-//  Helpers
-// ═══════════════════════════════════════════════════════════════════
-
-void MainWindow::appendLog(const QString &message)
-{
-    m_logOutput->append(message);
-    // Auto-scroll to bottom
-    QScrollBar *sb = m_logOutput->verticalScrollBar();
-    sb->setValue(sb->maximum());
-}
-
-void MainWindow::updateServerStateUI()
-{
-    using S = ServerManager::ServerState;
-    switch (m_serverMgr->state()) {
-    case S::Stopped:
-        m_statusLabel->setText(tr("已停止"));
-        m_statusLabel->setStyleSheet("font-size:14pt; font-weight:bold; color:#888;");
-        m_btnStart->setEnabled(true);
-        m_btnStop->setEnabled(false);
-        break;
-    case S::Starting:
-        m_statusLabel->setText(tr("啟動中..."));
-        m_statusLabel->setStyleSheet("font-size:14pt; font-weight:bold; color:#66c0f4;");
-        m_btnStart->setEnabled(false);
-        m_btnStop->setEnabled(true);
-        break;
-    case S::Running:
-        m_statusLabel->setText(tr("運行中"));
-        m_statusLabel->setStyleSheet("font-size:14pt; font-weight:bold; color:#8ab41f;");
-        m_btnStart->setEnabled(false);
-        m_btnStop->setEnabled(true);
-        break;
-    case S::Stopping:
-        m_statusLabel->setText(tr("停止中..."));
-        m_statusLabel->setStyleSheet("font-size:14pt; font-weight:bold; color:#eb4b4b;");
-        m_btnStart->setEnabled(false);
-        m_btnStop->setEnabled(false);
-        break;
-    }
-}
-
-QString MainWindow::dataRootDir() const
-{
-    // 將 SteamCMD 與遊戲資料存放在程式安裝目錄下的專屬資料夾 GameData 中
-    const QString dataDir = QCoreApplication::applicationDirPath() + "/GameData";
-    QDir().mkpath(dataDir);
-    return dataDir;
-}
-
-QString MainWindow::settingsFilePath() const
-{
-    return dataRootDir() + "/" + AppConfig::ConfigFileName;
-}
-
-QString MainWindow::serverInstallDir() const
-{
-    const QJsonObject s = ServerManager::loadSettings(settingsFilePath());
-    QString basePath = s.value("serverBasePath").toString();
-    if (basePath.isEmpty()) {
-        basePath = dataRootDir() + "/" + AppConfig::ServersSubDir;
-    }
-    return basePath + "/icarus";
-}
-
-void MainWindow::loadSettingsToUI()
-{
-    const QJsonObject s = ServerManager::loadSettings(settingsFilePath());
-    m_editServerName->setText(    s.value("serverName").toString());
-    m_editPassword->setText(      s.value("password").toString());
-    m_editAdminPassword->setText( s.value("adminPassword").toString());
-    m_spinMaxPlayers->setValue(   s.value("maxPlayers").toInt(AppConfig::DefaultMaxPlayers));
-    m_spinPort->setValue(         s.value("port").toInt(AppConfig::DefaultPort));
-    m_spinQueryPort->setValue(    s.value("queryPort").toInt(AppConfig::DefaultQueryPort));
-    m_editSteamCmdPath->setText(  s.value("steamCmdPath").toString());
-    m_editServerBasePath->setText(s.value("serverBasePath").toString());
-    m_editServerExePath->setText( s.value("serverExePath").toString());
-    m_editAdditionalArgs->setText(s.value("additionalArgs").toString());
-    m_editDiscordWebhook->setText(s.value("discordWebhookUrl").toString());
-}
-
-void MainWindow::saveSettingsFromUI()
-{
-    QJsonObject s;
-    s["serverName"]     = m_editServerName->text();
-    s["password"]       = m_editPassword->text();
-    s["adminPassword"]  = m_editAdminPassword->text();
-    s["maxPlayers"]     = m_spinMaxPlayers->value();
-    s["port"]           = m_spinPort->value();
-    s["queryPort"]      = m_spinQueryPort->value();
-    s["steamCmdPath"]   = m_editSteamCmdPath->text();
-    s["serverBasePath"] = m_editServerBasePath->text();
-    s["serverExePath"]  = m_editServerExePath->text();
-    s["additionalArgs"] = m_editAdditionalArgs->text();
-    s["discordWebhookUrl"] = m_editDiscordWebhook->text();
-
-    if (ServerManager::saveSettings(settingsFilePath(), s)) {
-        appendLog(tr("Settings saved."));
-        // Update SteamCmdManager with new path immediately
-        QString steamPath = m_editSteamCmdPath->text();
-        if (steamPath.isEmpty()) {
-            steamPath = dataRootDir() + "/" + AppConfig::SteamCmdSubDir;
-        }
-        m_steamCmd->setSteamCmdDir(steamPath);
-        m_discordMgr->setWebhookUrl(m_editDiscordWebhook->text());
-    } else {
-        appendLog(tr("[WARN] Failed to save settings."));
+    QJsonDocument doc(obj);
+    QFile file(globalSettingsPath());
+    if (file.open(QIODevice::WriteOnly)) {
+        file.write(doc.toJson());
     }
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
-    if (m_serverMgr->isRunning()) {
-        const auto reply = QMessageBox::question(
-            this, tr("Server Running"),
-            tr("The game server is still running.\n"
-               "Do you want to stop it and exit?"),
-            QMessageBox::Yes | QMessageBox::No);
+    if (m_currentInstance && m_currentInstance->isRunning()) {
+        QMessageBox::StandardButton btn = QMessageBox::warning(
+            this,
+            tr("伺服器運行中"),
+            tr("伺服器目前正在運行中。您確定要關閉啟動器嗎？\n這將會強制停止伺服器。"),
+            QMessageBox::Yes | QMessageBox::No
+        );
 
-        if (reply == QMessageBox::Yes) {
-            m_serverMgr->stopServer();
-            event->accept();
-        } else {
+        if (btn == QMessageBox::No) {
             event->ignore();
+            return;
         }
-    } else {
-        event->accept();
+
+        m_currentInstance->stopServer();
     }
+
+    saveGlobalSettings();
+    event->accept();
 }
 
-void MainWindow::autoDetectServerExe()
+QString MainWindow::dataRootDir() const
 {
-    if (!m_editServerExePath->text().trimmed().isEmpty())
-        return; // 已經有設定了，不自動覆蓋
+    return QCoreApplication::applicationDirPath() + QStringLiteral("/GameData");
+}
 
-    const QString installDir = serverInstallDir();
-    // 常見的 Icarus 伺服器執行檔相對路徑
-    QStringList candidates = {
-        "Icarus/Binaries/Win64/IcarusServer-Win64-Shipping.exe",
-        "IcarusServer.exe",
-        "icarus/Binaries/Win64/IcarusServer-Win64-Shipping.exe"
-    };
-
-    for (const QString &candidate : candidates) {
-        QString fullPath = QDir(installDir).filePath(candidate);
-        if (QFileInfo::exists(fullPath)) {
-            m_editServerExePath->setText(QDir::toNativeSeparators(fullPath));
-            saveSettingsFromUI();
-            appendLog(tr("[Info] 自動偵測到伺服器執行檔: %1").arg(fullPath));
-            break;
-        }
-    }
+QString MainWindow::globalSettingsPath() const
+{
+    return dataRootDir() + QStringLiteral("/") + AppConfig::ConfigFileName;
 }

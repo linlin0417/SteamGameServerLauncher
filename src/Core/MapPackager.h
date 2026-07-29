@@ -3,6 +3,7 @@
 #include <QString>
 #include <QPixmap>
 #include <QJsonObject>
+#include <QStringList>
 
 /// .IcarusMap 地圖包的中繼資料結構。
 struct MapMetadata {
@@ -12,6 +13,11 @@ struct MapMetadata {
     QString timestamp;            // 匯出時間戳（ISO 8601 格式）
     QString launcherVersion;      // 匯出時的啟動器版本
     bool    hasPreview = false;   // 是否包含預覽圖片
+
+    QString formatVersion;        // 新增: 格式版本號，例如 "2.0.0"
+    QString gameProfileId;        // 新增: 遊戲設定檔 ID，例如 "icarus"
+    QString gameDisplayName;      // 新增: 遊戲顯示名稱
+    QStringList saveFilePatterns; // 新增: 存檔檔案模式
 
     QJsonObject toJson() const;
     static MapMetadata fromJson(const QJsonObject &obj);
@@ -44,6 +50,9 @@ public:
     /// 從 .IcarusMap 檔案中讀取預覽圖片（不解壓存檔）。
     /// 若無預覽圖片，回傳空的 QPixmap。
     static QPixmap readPreview(const QString &icarusMapPath);
+
+    /// 檢查是否為 v1.x .IcarusMap 格式
+    static bool isLegacyFormat(const QString &filePath);
 
     /// 將 .IcarusMap 中的存檔解壓至目標目錄。
     /// @param icarusMapPath    .IcarusMap 檔案路徑

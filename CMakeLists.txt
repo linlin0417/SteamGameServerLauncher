@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(SteamGameServerLauncher VERSION 1.5.2 LANGUAGES C CXX)
+project(SteamGameServerLauncher VERSION 2.0.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -14,6 +14,13 @@ else()
     set(QT_VERSION_MAJOR 6)
 endif()
 
+# Qt Resource file for embedded game profiles
+if(QT_VERSION_MAJOR EQUAL 6)
+    qt6_add_resources(LAUNCHER_RESOURCES src/Resources/resources.qrc)
+else()
+    qt5_add_resources(LAUNCHER_RESOURCES src/Resources/resources.qrc)
+endif()
+
 # --- Main Launcher ---
 set(LAUNCHER_SOURCES
     src/main.cpp
@@ -23,6 +30,16 @@ set(LAUNCHER_SOURCES
     src/Core/GithubUpdater.cpp
     src/Core/MapPackager.cpp
     src/Core/DiscordManager.cpp
+    src/Core/GameProfile.cpp
+    src/Core/GameProfileManager.cpp
+    src/Core/ServerInstance.cpp
+    src/Core/SettingsMigrator.cpp
+    src/UI/SidebarWidget.cpp
+    src/UI/ServerControlPanel.cpp
+    src/UI/ServerSettingsPanel.cpp
+    src/UI/SaveManagerPanel.cpp
+    src/UI/GameProfileDialog.cpp
+    src/UI/AboutPanel.cpp
     updater/miniz.c
 )
 
@@ -34,11 +51,22 @@ set(LAUNCHER_HEADERS
     src/Core/GithubUpdater.h
     src/Core/MapPackager.h
     src/Core/DiscordManager.h
+    src/Core/GameProfile.h
+    src/Core/GameProfileManager.h
+    src/Core/ServerInstance.h
+    src/Core/SettingsMigrator.h
+    src/UI/SidebarWidget.h
+    src/UI/ServerControlPanel.h
+    src/UI/ServerSettingsPanel.h
+    src/UI/SaveManagerPanel.h
+    src/UI/GameProfileDialog.h
+    src/UI/AboutPanel.h
 )
 
 add_executable(SteamGameServerLauncher WIN32
     ${LAUNCHER_SOURCES}
     ${LAUNCHER_HEADERS}
+    ${LAUNCHER_RESOURCES}
 )
 
 target_include_directories(SteamGameServerLauncher PRIVATE

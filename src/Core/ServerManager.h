@@ -37,13 +37,16 @@ public:
     // --- Settings persistence ---
     static QJsonObject loadSettings(const QString &filePath);
     static bool        saveSettings(const QString &filePath, const QJsonObject &settings);
-    static QJsonObject defaultSettings();
 
-    /// Build command-line arguments from a settings JSON object.
-    static QStringList buildLaunchArgs(const QJsonObject &settings);
-
-    /// Apply specific settings to Icarus INI files.
-    static void applyIcarusSettings(const QJsonObject &settings);
+    /// 根據遊戲設定檔的 configFormat 和 configMappings 寫入遊戲設定檔
+    /// @param configFormat 設定檔格式 ("ini", "properties", "json", "none")
+    /// @param configFilePath 設定檔完整路徑
+    /// @param configSection INI 格式的目標區段名（僅 INI 格式使用）
+    /// @param mappings key-value 對映（key 為設定檔中的鍵名，value 為已替換變數的值）
+    static bool applyGameConfig(const QString &configFormat,
+                               const QString &configFilePath,
+                               const QString &configSection,
+                               const QJsonObject &mappings);
 
 signals:
     void stateChanged(ServerManager::ServerState newState);
