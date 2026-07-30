@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.10] - 2026-07-30
+
+### Fixed
+- 修復伺服器安裝目錄路徑錯誤的 Bug。原本系統錯誤地將伺服器檔案指向 `GameData/instances/`，現已修正為正確的 `GameData/servers/`，並與設定檔所在的 `instances/` 資料夾做出正確的職責分離。
+
 ## [2.0.9] - 2026-07-30
 
 ### Added

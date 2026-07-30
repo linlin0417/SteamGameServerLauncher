@@ -278,10 +278,10 @@ void MainWindow::switchToProfile(const QString &profileId)
     m_currentInstance = new ServerInstance(m_steamCmd, this);
     m_currentInstance->setProfile(profile);
 
-    const QString installDir = dataRootDir() + QStringLiteral("/instances/") + profileId;
+    const QString installDir = dataRootDir() + QStringLiteral("/servers/") + profileId;
     m_currentInstance->setInstallDir(installDir);
 
-    const QString settingsPath = installDir + QStringLiteral(".json");
+    const QString settingsPath = dataRootDir() + QStringLiteral("/instances/") + profileId + QStringLiteral(".json");
     m_currentInstance->loadSettings(settingsPath);
 
     QString steamPath = m_currentInstance->settings().value(QStringLiteral("steamCmdPath")).toString();
