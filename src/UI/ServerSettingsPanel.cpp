@@ -178,7 +178,8 @@ void ServerSettingsPanel::rebuildDynamicForm()
         QWidget *inputWidget = nullptr;
 
         if (varName == QStringLiteral("serverName")) {
-            inputWidget = new QLineEdit();
+            QLineEdit *le = new QLineEdit();
+            inputWidget = le;
         } else if (varName.contains(QStringLiteral("password"), Qt::CaseInsensitive)) {
             QLineEdit *le = new QLineEdit();
             le->setEchoMode(QLineEdit::PasswordEchoOnEdit);
@@ -213,7 +214,20 @@ void ServerSettingsPanel::rebuildDynamicForm()
             inputWidget = w;
             m_dynamicWidgets.insert(varName, le);
         } else {
-            inputWidget = new QLineEdit();
+            QLineEdit *le = new QLineEdit();
+            inputWidget = le;
+        }
+
+        // 設置淺灰色預設值 (Placeholder)
+        if (QLineEdit *le = qobject_cast<QLineEdit*>(inputWidget)) {
+            QJsonValue defVal = m_instance->profile().extraDefaults.value(varName);
+            if (!defVal.isUndefined()) {
+                if (defVal.isString()) le->setPlaceholderText(defVal.toString());
+                else if (defVal.isDouble()) le->setPlaceholderText(defVal.toVariant().toString());
+                else if (defVal.isBool()) le->setPlaceholderText(defVal.toBool() ? QStringLiteral("True") : QStringLiteral("False"));
+            }
+        } else if (QSpinBox *sb = qobject_cast<QSpinBox*>(inputWidget)) {
+            // SpinBox 不支援 Placeholder，略過
         }
 
         if (!m_dynamicWidgets.contains(varName)) {
@@ -230,24 +244,59 @@ void ServerSettingsPanel::loadSettingsToUI()
 {
     if (!m_instance) return;
 
-    QJsonObject settings = m_instance->mergedSettings();
+    // 讀取啟動器內部設定檔 (原始設定，不含 extraDefaults 合併)
+    QJsonObject rawSettings = m_instance->settings();
+    QJsonObject mergedSettings = m_instance->mergedSettings();
+    GameProfile profile = m_instance->profile();
 
-    m_editSteamCmdPath->setText(settings.value(QStringLiteral("steamCmdPath")).toString());
-    m_editInstallDir->setText(settings.value(QStringLiteral("installDir")).toString());
-    m_editServerExePath->setText(settings.value(QStringLiteral("serverExePath")).toString());
-    m_editAdditionalArgs->setText(settings.value(QStringLiteral("additionalArgs")).toString());
-    m_editDiscordWebhook->setText(settings.value(QStringLiteral("discordWebhook")).toString());
+    // --- 雙向同步：從真正的伺服器設定檔讀取最新數值 ---
+    QString formatStr;
+    switch (profile.configFormat) {
+        case GameProfile::INI: formatStr = QStringLiteral("ini"); break;
+        case GameProfile::Properties: formatStr = QStringLiteral("properties"); break;
+        case GameProfile::JSON_Config: formatStr = QStringLiteral("json"); break;
+        default: formatStr = QStringLiteral("none"); break;
+    }
+
+    if (formatStr != QStringLiteral("none")) {
+        QString configPath = m_instance->installDir() + '/' + profile.configFilePath;
+        QJsonObject readSettings = ServerManager::readGameConfig(
+            formatStr, configPath, profile.configSection, profile.configMappings);
+        
+        if (!readSettings.isEmpty()) {
+            emit logMessage(QStringLiteral("[同步] 已載入並同步外部設定檔參數。"));
+            for (auto it = readSettings.constBegin(); it != readSettings.constEnd(); ++it) {
+                rawSettings.insert(it.key(), it.value());
+                mergedSettings.insert(it.key(), it.value()); // 同時更新顯示用的 merged
+            }
+            m_instance->setSettings(rawSettings); // 回存至記憶體
+        } else {
+            emit logMessage(QStringLiteral("[同步] 伺服器設定檔尚未建立，使用預設參數。"));
+        }
+    }
+
+    m_editSteamCmdPath->setText(mergedSettings.value(QStringLiteral("steamCmdPath")).toString());
+    m_editInstallDir->setText(mergedSettings.value(QStringLiteral("installDir")).toString());
+    m_editServerExePath->setText(mergedSettings.value(QStringLiteral("serverExePath")).toString());
+    m_editAdditionalArgs->setText(mergedSettings.value(QStringLiteral("additionalArgs")).toString());
+    m_editDiscordWebhook->setText(mergedSettings.value(QStringLiteral("discordWebhook")).toString());
 
     for (auto it = m_dynamicWidgets.begin(); it != m_dynamicWidgets.end(); ++it) {
         QString varName = it.key();
         QWidget *w = it.value();
         
-        QJsonValue val = settings.value(varName);
-
-        if (QLineEdit *le = qobject_cast<QLineEdit*>(w)) {
-            le->setText(val.toString());
-        } else if (QSpinBox *sb = qobject_cast<QSpinBox*>(w)) {
-            sb->setValue(val.toInt());
+        // 若原始設定或 INI 有給值，才填入輸入框，否則留空顯示 Placeholder
+        if (rawSettings.contains(varName)) {
+            QJsonValue val = rawSettings.value(varName);
+            if (QLineEdit *le = qobject_cast<QLineEdit*>(w)) {
+                le->setText(val.isString() ? val.toString() : val.toVariant().toString());
+            } else if (QSpinBox *sb = qobject_cast<QSpinBox*>(w)) {
+                sb->setValue(val.toInt());
+            }
+        } else {
+            if (QLineEdit *le = qobject_cast<QLineEdit*>(w)) {
+                le->clear();
+            }
         }
     }
 }
@@ -268,7 +317,9 @@ void ServerSettingsPanel::saveSettingsFromUI()
         QWidget *w = it.value();
 
         if (QLineEdit *le = qobject_cast<QLineEdit*>(w)) {
-            settings.insert(varName, le->text());
+            if (!le->text().isEmpty()) { // 空字串不存入，讓底層去 fallback 預設值
+                settings.insert(varName, le->text());
+            }
         } else if (QSpinBox *sb = qobject_cast<QSpinBox*>(w)) {
             settings.insert(varName, sb->value());
         }
@@ -277,7 +328,10 @@ void ServerSettingsPanel::saveSettingsFromUI()
     m_instance->setSettings(settings);
     m_instance->saveSettings();
     
-    emit logMessage(QStringLiteral("設定已儲存。"));
+    // 立即套用回真實的伺服器設定檔 (INI)
+    m_instance->applyGameConfig();
+    
+    emit logMessage(QStringLiteral("設定已儲存並同步至伺服器檔案。"));
 }
 
 void ServerSettingsPanel::resetToDefaults()

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.8] - 2026-07-30
+
+### Changed
+- 完整重構伺服器設定檔 (INI) 雙向同步讀取邏輯。UI 參數面板現在會優先讀取並同步真實伺服器設定檔中的數值。
+- 更新 Icarus 設定檔範本，補齊高達 21 項全新伺服器進階設定欄位，並自動對應至 UI 供玩家修改。
+- 伺服器設定面板支援以 `extraDefaults` 顯示潛在的預設值 (Placeholder)。
+- 點擊「儲存設定」時，現在會立即將設定檔寫回至硬碟 (INI)。
+
+### Fixed
+- 增強路徑與安裝狀態防呆機制：在伺服器尚未安裝時切換至參數面板，將顯示提示並平滑降級使用內部預設值，避免程式出錯。
+
 ## [2.0.7] - 2026-07-30
 
 ### Fixed

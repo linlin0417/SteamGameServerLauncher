@@ -317,3 +317,102 @@ bool ServerManager::applyGameConfig(const QString &configFormat,
 
     return false;
 }
+
+QJsonObject ServerManager::readGameConfig(const QString &configFormat,
+                                          const QString &configFilePath,
+                                          const QString &configSection,
+                                          const QJsonObject &mappings)
+{
+    QJsonObject result;
+
+    if (configFormat == QStringLiteral("none") || mappings.isEmpty()) {
+        return result;
+    }
+
+    qDebug() << "[ConfigSync] 嘗試讀取伺服器設定檔:" << QDir::toNativeSeparators(configFilePath);
+    
+    QFileInfo fi(configFilePath);
+    qDebug() << "[ConfigSync] 檔案是否存在:" << fi.exists();
+
+    if (!fi.exists()) {
+        // 檔案不存在（通常為尚未安裝伺服器），回傳空物件交由上層處理防呆
+        return result;
+    }
+
+    // 將 mappings 中的值（如 "{maxPlayers}"）去括號，轉成 UI 變數名（如 "maxPlayers"）
+    QMap<QString, QString> keyToVarName;
+    for (auto it = mappings.constBegin(); it != mappings.constEnd(); ++it) {
+        QString varTpl = it.value().toString();
+        if (varTpl.startsWith(QLatin1Char('{')) && varTpl.endsWith(QLatin1Char('}'))) {
+            QString varName = varTpl.mid(1, varTpl.length() - 2);
+            keyToVarName.insert(it.key(), varName);
+        }
+    }
+
+    if (configFormat == QStringLiteral("ini")) {
+        QFile file(configFilePath);
+        if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            QTextStream in(&file);
+            bool inSection = false;
+            while (!in.atEnd()) {
+                QString line = in.readLine().trimmed();
+                if (line.isEmpty() || line.startsWith(QLatin1Char(';'))) continue;
+
+                if (line.startsWith(QLatin1Char('['))) {
+                    inSection = (line == configSection);
+                    continue;
+                }
+
+                if (inSection) {
+                    int eqIdx = line.indexOf(QLatin1Char('='));
+                    if (eqIdx != -1) {
+                        QString key = line.left(eqIdx).trimmed();
+                        QString val = line.mid(eqIdx + 1).trimmed();
+                        if (keyToVarName.contains(key)) {
+                            result.insert(keyToVarName.value(key), val);
+                        }
+                    }
+                }
+            }
+            file.close();
+        }
+    } else if (configFormat == QStringLiteral("properties")) {
+        QFile file(configFilePath);
+        if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            QTextStream in(&file);
+            while (!in.atEnd()) {
+                QString line = in.readLine().trimmed();
+                if (line.isEmpty() || line.startsWith(QLatin1Char('#'))) continue;
+
+                int eqIdx = line.indexOf(QLatin1Char('='));
+                if (eqIdx != -1) {
+                    QString key = line.left(eqIdx).trimmed();
+                    QString val = line.mid(eqIdx + 1).trimmed();
+                    if (keyToVarName.contains(key)) {
+                        result.insert(keyToVarName.value(key), val);
+                    }
+                }
+            }
+            file.close();
+        }
+    } else if (configFormat == QStringLiteral("json")) {
+        QFile file(configFilePath);
+        if (file.open(QIODevice::ReadOnly)) {
+            QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+            if (doc.isObject()) {
+                QJsonObject jsonObj = doc.object();
+                for (auto it = keyToVarName.constBegin(); it != keyToVarName.constEnd(); ++it) {
+                    if (jsonObj.contains(it.key())) {
+                        QJsonValue val = jsonObj.value(it.key());
+                        if (val.isString()) result.insert(it.value(), val.toString());
+                        else if (val.isDouble()) result.insert(it.value(), val.toVariant().toString());
+                        else if (val.isBool()) result.insert(it.value(), val.toBool() ? "true" : "false");
+                    }
+                }
+            }
+            file.close();
+        }
+    }
+
+    return result;
+}

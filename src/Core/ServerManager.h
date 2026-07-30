@@ -50,6 +50,17 @@ public:
                                const QJsonObject &mappings,
                                const QStringList &configDefaultContent = {});
 
+    /// 根據遊戲設定檔的反向映射讀取設定檔數值
+    /// @param configFormat 設定檔格式 ("ini", "properties", "json", "none")
+    /// @param configFilePath 設定檔完整路徑
+    /// @param configSection INI 格式的目標區段名（僅 INI 格式使用）
+    /// @param mappings key-value 對映（key 為設定檔中的鍵名，value 為目標變數名，如 "{maxPlayers}"）
+    /// @return 讀取到的變數對映 (如 "maxPlayers" -> "8")
+    static QJsonObject readGameConfig(const QString &configFormat,
+                                      const QString &configFilePath,
+                                      const QString &configSection,
+                                      const QJsonObject &mappings);
+
 signals:
     void stateChanged(ServerManager::ServerState newState);
     void logMessage(const QString &message);

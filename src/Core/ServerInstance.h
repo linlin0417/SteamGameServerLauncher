@@ -60,9 +60,11 @@ signals:
     void operationFinished(bool success, const QString &msg);
     void updateCheckFinished(bool hasUpdate, const QString &localVer, const QString &onlineVer, const QString &msg);
 
-private:
+public:
     /// 根據 GameProfile 的 configFormat/configMappings 應用遊戲設定
     void applyGameConfig();
+
+private:
 
     GameProfile m_profile;
     QJsonObject m_settings;
