@@ -400,6 +400,12 @@ void ServerSettingsPanel::resetToDefaults()
             } else if (QSpinBox *sb = qobject_cast<QSpinBox*>(w)) {
                 sb->setValue(defVal.toInt());
             }
+        } else if (varName == QStringLiteral("port")) {
+            if (QSpinBox *sb = qobject_cast<QSpinBox*>(w)) sb->setValue(profile.defaultPort);
+        } else if (varName == QStringLiteral("queryPort")) {
+            if (QSpinBox *sb = qobject_cast<QSpinBox*>(w)) sb->setValue(profile.defaultQueryPort);
+        } else if (varName == QStringLiteral("maxPlayers")) {
+            if (QSpinBox *sb = qobject_cast<QSpinBox*>(w)) sb->setValue(profile.defaultMaxPlayers);
         } else {
             // 如果不在 defaults 中，清空
             if (QLineEdit *le = qobject_cast<QLineEdit*>(w)) {

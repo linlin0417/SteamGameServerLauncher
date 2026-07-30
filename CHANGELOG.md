@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.12] - 2026-07-30
+
+### Fixed
+- 修復點擊「恢復建議設定」時，`port`、`queryPort` 與 `maxPlayers` 會錯誤地被清零（並自動變為 1）的問題。現已確保會正確讀取對應遊戲的基礎預設值（例如：17777、27015）。
+
 ## [2.0.11] - 2026-07-30
 
 ### Added
