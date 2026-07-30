@@ -143,9 +143,28 @@ void ServerSettingsPanel::setupUI()
         "}"
     );
     connect(btnSave, &QPushButton::clicked, this, &ServerSettingsPanel::saveSettingsFromUI);
+    
+    QPushButton *btnReset = new QPushButton(QStringLiteral("恢復建議設定"));
+    btnReset->setStyleSheet(
+        "QPushButton { "
+        "    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #555555, stop:1 #333333); "
+        "    color: white; "
+        "    border: 1px solid #444; "
+        "    padding: 8px 16px; "
+        "    border-radius: 2px; "
+        "} "
+        "QPushButton:hover { "
+        "    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #666666, stop:1 #444444); "
+        "} "
+        "QPushButton:pressed { "
+        "    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #333333, stop:1 #222222); "
+        "}"
+    );
+    connect(btnReset, &QPushButton::clicked, this, &ServerSettingsPanel::resetToDefaults);
 
     QHBoxLayout *bottomLayout = new QHBoxLayout();
     bottomLayout->addStretch(1);
+    bottomLayout->addWidget(btnReset);
     bottomLayout->addWidget(btnSave);
     mainLayout->addLayout(bottomLayout);
 
@@ -360,7 +379,38 @@ void ServerSettingsPanel::saveSettingsFromUI()
 
 void ServerSettingsPanel::resetToDefaults()
 {
-    // Reserved
+    if (!m_instance) return;
+
+    GameProfile profile = m_instance->profile();
+    const QJsonObject &defaults = profile.extraDefaults;
+
+    for (auto it = m_dynamicWidgets.begin(); it != m_dynamicWidgets.end(); ++it) {
+        QString varName = it.key();
+        QWidget *w = it.value();
+
+        // 依要求：不要恢復 SessionName (其變數對應為 serverName)
+        if (varName == QStringLiteral("serverName")) {
+            continue;
+        }
+
+        if (defaults.contains(varName)) {
+            QJsonValue defVal = defaults.value(varName);
+            if (QLineEdit *le = qobject_cast<QLineEdit*>(w)) {
+                le->setText(defVal.toString());
+            } else if (QSpinBox *sb = qobject_cast<QSpinBox*>(w)) {
+                sb->setValue(defVal.toInt());
+            }
+        } else {
+            // 如果不在 defaults 中，清空
+            if (QLineEdit *le = qobject_cast<QLineEdit*>(w)) {
+                le->clear();
+            } else if (QSpinBox *sb = qobject_cast<QSpinBox*>(w)) {
+                sb->setValue(0);
+            }
+        }
+    }
+    
+    emit logMessage(QStringLiteral("已恢復除了 SessionName 之外的建議設定！"));
 }
 
 void ServerSettingsPanel::onTestWebhook()

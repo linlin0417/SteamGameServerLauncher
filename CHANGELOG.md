@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.11] - 2026-07-30
+
+### Added
+- 於伺服器參數面板新增「恢復建議設定」按鈕。
+- 支援一鍵將大部份參數還原為伺服器的官方推薦建議設定 (並依使用者要求特別將 `AdminPassword` 推薦值調整為 `12345678`)。
+- 確保恢復設定時會略過 `SessionName` 欄位，保護玩家的伺服器名稱不被重置。
+
 ## [2.0.10] - 2026-07-30
 
 ### Fixed

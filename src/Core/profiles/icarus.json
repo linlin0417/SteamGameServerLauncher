@@ -36,7 +36,7 @@
         "[/Script/Icarus.DedicatedServerSettings]",
         "SessionName=",
         "JoinPassword=",
-        "AdminPassword=123456",
+        "AdminPassword=12345678",
         "MaxPlayers=8",
         "LoadProspect=",
         "CreateProspect=",
@@ -64,7 +64,7 @@
     "extraDefaults": {
         "serverName": "My Icarus Server",
         "password": "",
-        "adminPassword": "123456",
+        "adminPassword": "12345678",
         "maxPlayers": 8,
         "loadProspect": "",
         "createProspect": "",
