@@ -246,6 +246,6 @@ void ServerInstance::applyGameConfig()
         qDebug() << "[applyGameConfig]  " << it.key() << "=" << it.value().toString();
     }
 
-    bool ok = ServerManager::applyGameConfig(formatStr, configPath, m_profile.configSection, finalMappings);
+    bool ok = ServerManager::applyGameConfig(formatStr, configPath, m_profile.configSection, finalMappings, m_profile.configDefaultContent);
     qDebug() << "[applyGameConfig] write result:" << ok;
 }

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.7] - 2026-07-30
+
+### Fixed
+- 修復 Icarus `ServerSettings.ini` 首次建立時內容不完整的問題：新增 `configDefaultContent` 機制，當設定檔不存在時先以預設範本建立完整檔案，再執行 key 替換。解決首次啟動時僅寫入 3 個 key 而遺失其他必要預設值的問題。
+
 ## [2.0.6] - 2026-07-30
 
 ### Fixed

@@ -30,6 +30,7 @@ struct GameProfile {
     QString configFilePath;    // 遊戲設定檔相對路徑
     QString configSection;     // INI 格式：目標區段名
     QJsonObject configMappings;// key -> 模板變數對應表
+    QStringList configDefaultContent; // 設定檔預設內容（逐行），檔案不存在時以此建立
 
     // --- 存檔管理 ---
     QString savesRelativePath; // 存檔目錄相對路徑

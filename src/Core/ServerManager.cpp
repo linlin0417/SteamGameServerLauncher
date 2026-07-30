@@ -170,7 +170,8 @@ bool ServerManager::saveSettings(const QString &filePath,
 bool ServerManager::applyGameConfig(const QString &configFormat,
                                     const QString &configFilePath,
                                     const QString &configSection,
-                                    const QJsonObject &mappings)
+                                    const QJsonObject &mappings,
+                                    const QStringList &configDefaultContent)
 {
     if (configFormat == QStringLiteral("none")) {
         return true;
@@ -179,6 +180,21 @@ bool ServerManager::applyGameConfig(const QString &configFormat,
     QFileInfo fi(configFilePath);
     if (!fi.absoluteDir().exists()) {
         fi.absoluteDir().mkpath(QStringLiteral("."));
+    }
+
+    // 若檔案不存在且有提供預設內容，先以預設範本建立檔案
+    if (!fi.exists() && !configDefaultContent.isEmpty()) {
+        QFile initFile(configFilePath);
+        if (!initFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            qWarning() << "[applyGameConfig] 無法建立預設設定檔:" << configFilePath;
+            return false;
+        }
+        QTextStream initOut(&initFile);
+        for (const QString &line : configDefaultContent) {
+            initOut << line << QLatin1Char('\n');
+        }
+        initFile.close();
+        qDebug() << "[applyGameConfig] 已以預設範本建立設定檔:" << configFilePath;
     }
 
     if (configFormat == QStringLiteral("ini")) {

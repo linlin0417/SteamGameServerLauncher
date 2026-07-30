@@ -43,10 +43,12 @@ public:
     /// @param configFilePath 設定檔完整路徑
     /// @param configSection INI 格式的目標區段名（僅 INI 格式使用）
     /// @param mappings key-value 對映（key 為設定檔中的鍵名，value 為已替換變數的值）
+    /// @param configDefaultContent 設定檔預設內容（逐行），檔案不存在時以此建立
     static bool applyGameConfig(const QString &configFormat,
                                const QString &configFilePath,
                                const QString &configSection,
-                               const QJsonObject &mappings);
+                               const QJsonObject &mappings,
+                               const QStringList &configDefaultContent = {});
 
 signals:
     void stateChanged(ServerManager::ServerState newState);

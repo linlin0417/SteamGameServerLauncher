@@ -45,6 +45,7 @@ QJsonObject GameProfile::toJson() const
     obj[QStringLiteral("configFilePath")] = configFilePath;
     obj[QStringLiteral("configSection")] = configSection;
     obj[QStringLiteral("configMappings")] = configMappings;
+    obj[QStringLiteral("configDefaultContent")] = QJsonArray::fromStringList(configDefaultContent);
 
     obj[QStringLiteral("savesRelativePath")] = savesRelativePath;
     obj[QStringLiteral("saveFilePatterns")] = QJsonArray::fromStringList(saveFilePatterns);
@@ -95,6 +96,11 @@ GameProfile GameProfile::fromJson(const QJsonObject &obj)
     profile.configFilePath = obj.value(QStringLiteral("configFilePath")).toString();
     profile.configSection = obj.value(QStringLiteral("configSection")).toString();
     profile.configMappings = obj.value(QStringLiteral("configMappings")).toObject();
+
+    QJsonArray defaultContentArray = obj.value(QStringLiteral("configDefaultContent")).toArray();
+    for (int i = 0; i < defaultContentArray.size(); ++i) {
+        profile.configDefaultContent.append(defaultContentArray.at(i).toString());
+    }
 
     profile.savesRelativePath = obj.value(QStringLiteral("savesRelativePath")).toString();
     
