@@ -13,6 +13,10 @@
 #include <QFileDialog>
 #include <QDebug>
 #include <QJsonValue>
+#include <QDesktopServices>
+#include <QUrl>
+#include <QDir>
+#include <QFileInfo>
 
 ServerSettingsPanel::ServerSettingsPanel(QWidget *parent)
     : QWidget(parent)
@@ -102,6 +106,20 @@ void ServerSettingsPanel::setupUI()
     m_dynamicForm->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);
     contentLayout->addWidget(m_grpDynamic);
 
+    // 除錯功能區
+    m_grpDebug = new QGroupBox(QStringLiteral("除錯功能"));
+    m_grpDebug->setStyleSheet(groupStyle);
+    QHBoxLayout *debugLayout = new QHBoxLayout(m_grpDebug);
+    
+    m_btnOpenConfigFile = new QPushButton(QStringLiteral("開啟 INI 設定檔"));
+    m_btnOpenConfigDir = new QPushButton(QStringLiteral("開啟設定檔目錄"));
+    
+    debugLayout->addWidget(m_btnOpenConfigFile);
+    debugLayout->addWidget(m_btnOpenConfigDir);
+    debugLayout->addStretch(1);
+    
+    contentLayout->addWidget(m_grpDebug);
+
     contentLayout->addStretch(1);
 
     m_scrollArea->setWidget(m_scrollContent);
@@ -132,6 +150,8 @@ void ServerSettingsPanel::setupUI()
     mainLayout->addLayout(bottomLayout);
 
     connect(m_btnTestWebhook, &QPushButton::clicked, this, &ServerSettingsPanel::onTestWebhook);
+    connect(m_btnOpenConfigFile, &QPushButton::clicked, this, &ServerSettingsPanel::onOpenConfigFile);
+    connect(m_btnOpenConfigDir, &QPushButton::clicked, this, &ServerSettingsPanel::onOpenConfigDir);
 }
 
 void ServerSettingsPanel::bindInstance(ServerInstance *instance)
@@ -153,6 +173,7 @@ void ServerSettingsPanel::bindInstance(ServerInstance *instance)
         m_editServerExePath->clear();
         m_editAdditionalArgs->clear();
         m_editDiscordWebhook->clear();
+        m_grpDebug->setVisible(false);
     }
 }
 
@@ -238,6 +259,9 @@ void ServerSettingsPanel::rebuildDynamicForm()
     }
     
     m_grpDynamic->setVisible(!varNames.isEmpty());
+    
+    // 判斷是否支援除錯模式 (是否有指定 configFilePath)
+    m_grpDebug->setVisible(!m_instance->profile().configFilePath.isEmpty());
 }
 
 void ServerSettingsPanel::loadSettingsToUI()
@@ -347,4 +371,39 @@ void ServerSettingsPanel::onTestWebhook()
 void ServerSettingsPanel::onBrowseJavaPath()
 {
     // handled by lambda
+}
+
+void ServerSettingsPanel::onOpenConfigDir()
+{
+    if (!m_instance) return;
+    GameProfile profile = m_instance->profile();
+    if (profile.configFilePath.isEmpty()) return;
+
+    QString configPath = m_instance->installDir() + '/' + profile.configFilePath;
+    QFileInfo fi(configPath);
+    QString dirPath = fi.absolutePath();
+
+    if (QDir(dirPath).exists()) {
+        QDesktopServices::openUrl(QUrl::fromLocalFile(dirPath));
+        emit logMessage(QStringLiteral("[除錯] 已開啟設定檔所在目錄。"));
+    } else {
+        emit logMessage(QStringLiteral("[除錯] 錯誤：目錄不存在，伺服器可能尚未下載。"));
+    }
+}
+
+void ServerSettingsPanel::onOpenConfigFile()
+{
+    if (!m_instance) return;
+    GameProfile profile = m_instance->profile();
+    if (profile.configFilePath.isEmpty()) return;
+
+    QString configPath = m_instance->installDir() + '/' + profile.configFilePath;
+    QFileInfo fi(configPath);
+
+    if (fi.exists()) {
+        QDesktopServices::openUrl(QUrl::fromLocalFile(configPath));
+        emit logMessage(QStringLiteral("[除錯] 已開啟設定檔。"));
+    } else {
+        emit logMessage(QStringLiteral("[除錯] 錯誤：檔案不存在，請先儲存設定以自動建立，或確認伺服器已下載。"));
+    }
 }

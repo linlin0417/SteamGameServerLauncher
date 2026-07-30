@@ -36,6 +36,10 @@ private slots:
     void onTestWebhook();
     void onBrowseJavaPath();
     void resetToDefaults();
+    
+    // Debug actions
+    void onOpenConfigDir();
+    void onOpenConfigFile();
 
 private:
     void setupUI();
@@ -60,4 +64,9 @@ private:
     QLineEdit *m_editAdditionalArgs = nullptr;
     QLineEdit *m_editDiscordWebhook = nullptr;
     QPushButton *m_btnTestWebhook = nullptr;
+
+    // 除錯功能區
+    QGroupBox *m_grpDebug = nullptr;
+    QPushButton *m_btnOpenConfigDir = nullptr;
+    QPushButton *m_btnOpenConfigFile = nullptr;
 };

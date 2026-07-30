@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.9] - 2026-07-30
+
+### Added
+- 在「伺服器參數」面板新增「除錯功能」區塊。
+- 新增「開啟 INI 設定檔」按鈕，可直接用系統預設文字編輯器打開真實伺服器設定檔 (例如 `ServerSettings.ini`)。
+- 新增「開啟設定檔目錄」按鈕，可直接開啟設定檔所在的資料夾，方便玩家手動除錯與檢查。
+- 上述按鈕具備防呆機制，當檔案或目錄尚未建立時，會於日誌提示錯誤而不會崩潰。
+
 ## [2.0.8] - 2026-07-30
 
 ### Changed
