@@ -39,10 +39,24 @@ bool SteamCmdManager::isSteamCmdInstalled() const
     return QFileInfo::exists(m_steamCmdDir + QStringLiteral("/steamcmd.exe"));
 }
 
+bool SteamCmdManager::containsNonAscii(const QString &str) const
+{
+    for (QChar c : str) {
+        if (c.unicode() > 127) return true;
+    }
+    return false;
+}
+
 void SteamCmdManager::downloadSteamCmd()
 {
     if (m_busy) {
         emit logMessage(tr("[SteamCMD] Another operation is in progress."));
+        return;
+    }
+
+    if (containsNonAscii(m_steamCmdDir)) {
+        emit logMessage(tr("[SteamCMD] 錯誤：SteamCMD 安裝路徑不能包含中文或其他非英文字元，請更改路徑。"));
+        emit operationFinished(false, tr("Path contains non-ASCII characters."));
         return;
     }
 
@@ -106,9 +120,10 @@ void SteamCmdManager::extractZip(const QString &zipPath, const QString &destDir)
         QFile::remove(zipPath);
 
         if (exitCode == 0 && isSteamCmdInstalled()) {
-            emit logMessage(tr("[SteamCMD] Extraction complete. SteamCMD is ready."));
-            m_busy = false;
-            emit operationFinished(true, tr("SteamCMD installed successfully."));
+            emit logMessage(tr("[SteamCMD] Extraction complete. Initializing SteamCMD (this will download additional files)..."));
+            m_isInitializing = true;
+            m_busy = false; // runSteamCmd sets it back to true
+            runSteamCmd(QStringList() << QStringLiteral("+quit"));
         } else {
             emit logMessage(tr("[SteamCMD] Extraction failed (exit code %1).").arg(exitCode));
             m_busy = false;
@@ -282,6 +297,7 @@ void SteamCmdManager::runCustomScript(const QString &scriptPath, const QString &
 void SteamCmdManager::runSteamCmd(const QStringList &args)
 {
     m_busy = true;
+    m_lastArgs = args;
 
     if (m_process) {
         m_process->deleteLater();
@@ -372,6 +388,12 @@ void SteamCmdManager::onProcessFinished(int exitCode,
         }
 
         if (onlineBuildId.isEmpty()) {
+            if (exitCode == 7) {
+                emit logMessage(tr("[SteamCMD] SteamCMD updated itself. Restarting check..."));
+                m_isCheckingUpdate = true;
+                runSteamCmd(m_lastArgs);
+                return;
+            }
             emit logMessage(tr("[SteamCMD] Could not parse online BuildID."));
             emit updateCheckFinished(false, m_localBuildIdCache, QString(), tr("Failed to parse online info."));
             return;
@@ -389,15 +411,30 @@ void SteamCmdManager::onProcessFinished(int exitCode,
     }
 
     if (status == QProcess::CrashExit) {
+        m_isInitializing = false;
         emit logMessage(tr("[SteamCMD] Process crashed."));
         emit operationFinished(false, tr("SteamCMD process crashed."));
+    } else if (exitCode == 7) {
+        if (m_isInitializing) {
+            m_isInitializing = false;
+            emit logMessage(tr("[SteamCMD] SteamCMD initial update complete."));
+            emit operationFinished(true, tr("SteamCMD installed successfully."));
+        } else {
+            emit logMessage(tr("[SteamCMD] SteamCMD updated itself. Restarting operation..."));
+            runSteamCmd(m_lastArgs);
+        }
     } else if (exitCode != 0) {
-        // SteamCMD sometimes returns non-zero for benign reasons.
-        // exitCode 7 is common for first-run updates.
+        m_isInitializing = false;
         emit logMessage(tr("[SteamCMD] Finished with exit code %1.").arg(exitCode));
-        emit operationFinished(exitCode == 7, tr("SteamCMD finished (code %1).").arg(exitCode));
+        emit operationFinished(false, tr("SteamCMD finished (code %1).").arg(exitCode));
     } else {
-        emit logMessage(tr("[SteamCMD] Operation completed successfully."));
-        emit operationFinished(true, tr("Operation completed successfully."));
+        if (m_isInitializing) {
+            m_isInitializing = false;
+            emit logMessage(tr("[SteamCMD] SteamCMD initialization complete."));
+            emit operationFinished(true, tr("SteamCMD installed successfully."));
+        } else {
+            emit logMessage(tr("[SteamCMD] Operation completed successfully."));
+            emit operationFinished(true, tr("Operation completed successfully."));
+        }
     }
 }

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.13] - 2026-08-22
+
+### Fixed
+- 新增安裝路徑的非英文字元檢查以防止 SteamCMD 啟動崩潰。
+- 新增在解壓縮後自動執行 `+quit` 指令以完整初始化 SteamCMD。
+- 修復 SteamCMD 自我更新 (Exit Code 7) 會中斷後續伺服器安裝指令的問題，現在會自動重試原本的指令。
+
 ## [2.0.12] - 2026-07-30
 
 ### Fixed

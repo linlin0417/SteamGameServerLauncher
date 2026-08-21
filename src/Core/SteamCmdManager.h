@@ -55,6 +55,7 @@ private slots:
 private:
     void runSteamCmd(const QStringList &args);
     void extractZip(const QString &zipPath, const QString &destDir);
+    bool containsNonAscii(const QString &str) const;
 
     QString m_steamCmdDir;
     QProcess *m_process = nullptr;
@@ -62,6 +63,8 @@ private:
     bool m_busy = false;
     QString m_currentOperation;
     bool m_isCheckingUpdate = false;
+    bool m_isInitializing = false;
     QString m_outputCache;
     QString m_localBuildIdCache;
+    QStringList m_lastArgs;
 };
