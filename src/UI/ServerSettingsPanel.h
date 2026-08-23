@@ -10,6 +10,8 @@ class QSpinBox;
 class QPushButton;
 class QGroupBox;
 class QScrollArea;
+class QDialog;
+class QTextEdit;
 class ServerInstance;
 class DiscordManager;
 
@@ -31,6 +33,7 @@ signals:
 
 public slots:
     void saveSettingsFromUI();
+    void appendLogToConsole(const QString &msg);
 
 private slots:
     void onTestWebhook();
@@ -69,4 +72,11 @@ private:
     QGroupBox *m_grpDebug = nullptr;
     QPushButton *m_btnOpenConfigDir = nullptr;
     QPushButton *m_btnOpenConfigFile = nullptr;
+    QPushButton *m_btnOpenConsole = nullptr;
+
+    // 獨立 Console 視窗
+    QDialog *m_consoleDialog = nullptr;
+    QTextEdit *m_consoleLogOutput = nullptr;
+
+    void onOpenConsole();
 };

@@ -17,6 +17,8 @@
 #include <QUrl>
 #include <QDir>
 #include <QFileInfo>
+#include <QDialog>
+#include <QTextEdit>
 
 ServerSettingsPanel::ServerSettingsPanel(QWidget *parent)
     : QWidget(parent)
@@ -113,9 +115,11 @@ void ServerSettingsPanel::setupUI()
     
     m_btnOpenConfigFile = new QPushButton(QStringLiteral("開啟 INI 設定檔"));
     m_btnOpenConfigDir = new QPushButton(QStringLiteral("開啟設定檔目錄"));
+    m_btnOpenConsole = new QPushButton(QStringLiteral("開啟獨立 Console 視窗"));
     
     debugLayout->addWidget(m_btnOpenConfigFile);
     debugLayout->addWidget(m_btnOpenConfigDir);
+    debugLayout->addWidget(m_btnOpenConsole);
     debugLayout->addStretch(1);
     
     contentLayout->addWidget(m_grpDebug);
@@ -171,16 +175,27 @@ void ServerSettingsPanel::setupUI()
     connect(m_btnTestWebhook, &QPushButton::clicked, this, &ServerSettingsPanel::onTestWebhook);
     connect(m_btnOpenConfigFile, &QPushButton::clicked, this, &ServerSettingsPanel::onOpenConfigFile);
     connect(m_btnOpenConfigDir, &QPushButton::clicked, this, &ServerSettingsPanel::onOpenConfigDir);
+    connect(m_btnOpenConsole, &QPushButton::clicked, this, &ServerSettingsPanel::onOpenConsole);
+
+    connect(this, &ServerSettingsPanel::logMessage, this, &ServerSettingsPanel::appendLogToConsole);
 }
 
 void ServerSettingsPanel::bindInstance(ServerInstance *instance)
 {
     if (m_instance == instance) return;
     
+    if (m_instance) {
+        disconnect(m_instance, &ServerInstance::logMessage, this, &ServerSettingsPanel::appendLogToConsole);
+    }
+    
     m_instance = instance;
     if (m_instance) {
+        connect(m_instance, &ServerInstance::logMessage, this, &ServerSettingsPanel::appendLogToConsole);
         rebuildDynamicForm();
         loadSettingsToUI();
+        if (m_consoleDialog) {
+            m_consoleDialog->setWindowTitle(QStringLiteral("Debug Console - %1").arg(m_instance->profile().displayName));
+        }
     } else {
         while (QLayoutItem *item = m_dynamicForm->takeAt(0)) {
             if (QWidget *w = item->widget()) w->deleteLater();
@@ -193,12 +208,22 @@ void ServerSettingsPanel::bindInstance(ServerInstance *instance)
         m_editAdditionalArgs->clear();
         m_editDiscordWebhook->clear();
         m_grpDebug->setVisible(false);
+        if (m_consoleDialog) {
+            m_consoleDialog->setWindowTitle(QStringLiteral("Debug Console - Global"));
+        }
     }
 }
 
 void ServerSettingsPanel::unbindInstance()
 {
     bindInstance(nullptr);
+}
+
+void ServerSettingsPanel::appendLogToConsole(const QString &msg)
+{
+    if (m_consoleLogOutput) {
+        m_consoleLogOutput->append(msg);
+    }
 }
 
 void ServerSettingsPanel::rebuildDynamicForm()
@@ -462,4 +487,56 @@ void ServerSettingsPanel::onOpenConfigFile()
     } else {
         emit logMessage(QStringLiteral("[除錯] 錯誤：檔案不存在，請先儲存設定以自動建立，或確認伺服器已下載。"));
     }
+}
+
+void ServerSettingsPanel::onOpenConsole()
+{
+    if (!m_consoleDialog) {
+        m_consoleDialog = new QDialog(this);
+        m_consoleDialog->setWindowTitle(QStringLiteral("Debug Console - %1").arg(
+            m_instance ? m_instance->profile().displayName : QStringLiteral("Global")
+        ));
+        m_consoleDialog->resize(800, 500);
+        
+        // 設為獨立視窗 (即使主視窗被覆蓋也可以置頂或分開拖曳)
+        m_consoleDialog->setWindowFlags(Qt::Window);
+
+        QVBoxLayout *layout = new QVBoxLayout(m_consoleDialog);
+        m_consoleLogOutput = new QTextEdit(m_consoleDialog);
+        m_consoleLogOutput->setReadOnly(true);
+        m_consoleLogOutput->setStyleSheet(
+            "QTextEdit { "
+            "background-color: #101214; "
+            "color: #a0b1c0; "
+            "border: 1px solid #202d39; "
+            "font-family: 'Cascadia Code', 'Consolas', monospace; "
+            "font-size: 10pt; "
+            "}"
+        );
+        layout->addWidget(m_consoleLogOutput);
+        
+        QPushButton *btnClear = new QPushButton(QStringLiteral("清除日誌"), m_consoleDialog);
+        btnClear->setStyleSheet(
+            "QPushButton { "
+            "    background-color: #22303f; "
+            "    color: #c7d5e0; "
+            "    border: 1px solid #202d39; "
+            "    padding: 6px 12px; "
+            "    border-radius: 2px; "
+            "} "
+            "QPushButton:hover { background-color: #2a3f54; border: 1px solid #66c0f4; } "
+            "QPushButton:pressed { background-color: #1b2838; }"
+        );
+        connect(btnClear, &QPushButton::clicked, m_consoleLogOutput, &QTextEdit::clear);
+        layout->addWidget(btnClear);
+    }
+    
+    // 如果重新綁定了不同的 instance，可能要更新標題
+    if (m_instance) {
+        m_consoleDialog->setWindowTitle(QStringLiteral("Debug Console - %1").arg(m_instance->profile().displayName));
+    }
+    
+    m_consoleDialog->show();
+    m_consoleDialog->raise();
+    m_consoleDialog->activateWindow();
 }
