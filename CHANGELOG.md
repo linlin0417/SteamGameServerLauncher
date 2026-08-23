@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.14] - 2026-08-24
+
+### Added
+- 在「伺服器參數」面板的「除錯功能」區塊中，新增「開啟獨立 Console 視窗」按鈕，方便使用者將日誌獨立為獨立視窗，並於切換分頁操作（如更新伺服器）時持續監看完整日誌。
+
 ## [2.0.13] - 2026-08-22
 
 ### Fixed
