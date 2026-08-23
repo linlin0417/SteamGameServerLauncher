@@ -91,6 +91,9 @@ void ServerControlPanel::setupUI()
     layout->addWidget(m_logOutput, 1);
 
     // 信號連接
+    connect(m_btnInstallCmd, &QPushButton::clicked, this, [this]() {
+        if (m_instance) m_instance->downloadSteamCmd();
+    });
     connect(m_btnUpdateServer, &QPushButton::clicked, this, [this]() {
         if (m_instance) m_instance->installOrUpdate();
     });

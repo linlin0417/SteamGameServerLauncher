@@ -146,6 +146,15 @@ bool ServerInstance::autoDetectServerExe()
     return false;
 }
 
+void ServerInstance::downloadSteamCmd()
+{
+    if (!m_steamCmd) {
+        emit logMessage("SteamCMD 管理器未設定，無法下載 SteamCMD");
+        return;
+    }
+    m_steamCmd->downloadSteamCmd();
+}
+
 void ServerInstance::installOrUpdate()
 {
     if (!m_steamCmd) {

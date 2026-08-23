@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.15] - 2026-08-24
+
+### Fixed
+- 修復控制面板中的「安裝 SteamCMD」按鈕點擊後完全沒有反應的問題。由於該按鈕在先前的 UI 重構中遺漏了事件綁定，現已將其正確連接至 SteamCMD 的下載初始化流程。
+
 ## [2.0.14] - 2026-08-24
 
 ### Added

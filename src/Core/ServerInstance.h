@@ -43,6 +43,7 @@ public:
     bool autoDetectServerExe();
 
     // --- 伺服器操作 ---
+    void downloadSteamCmd();
     void installOrUpdate();
     void checkUpdate();
     void startServer();
