@@ -10,6 +10,19 @@
 前往[releases](https://github.com/linlin0417/SteamGameServerLauncher/releases/latest)
 請下載 `.exe` 安裝檔  
 > 請注意: 請盡量安裝在非權限管制的資料夾中以避免需要UAC
+
+### 匯入原版地圖 (手動打包)
+如果您想要直接匯入原版地圖，可以使用我們提供的範例空檔案：
+[下載 EmptyTemplate.SGSLMap (位於 Templates 目錄下)](Templates/EmptyTemplate.SGSLMap)
+
+**匯入步驟：**
+1. 將下載的 `EmptyTemplate.SGSLMap` 檔案副檔名改為 `.zip`。
+2. 解壓縮該檔案。
+3. 將您的原版地圖存檔（包含 `.json` 與 `.json.backup`）放入解壓縮後的 `saves/` 目錄中。
+4. (非必要) 您可以編輯 `metadata.json` 修改地圖資訊。
+5. 將 `metadata.json` 與 `saves/` 目錄重新打包成 `.zip` 壓縮檔。
+6. 將該壓縮檔副檔名改為 `.SGSLMap` 或 `.IcarusMap`。
+7. 在啟動器中匯入此檔案即可。
 ---
 ## 許可證
 本專案原始碼採用 Apache License 2.0 授權。

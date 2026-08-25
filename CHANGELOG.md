@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.18] - 2026-08-26
+
+### Added
+- 於 `Templates` 目錄中新增 `EmptyTemplate.SGSLMap` 範本檔案，並在 `Readme.md` 補充手動匯入原版地圖的步驟說明。
+
 ## [2.0.17] - 2026-08-25
 
 ### Fixed
