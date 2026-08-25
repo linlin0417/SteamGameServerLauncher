@@ -260,6 +260,9 @@ void MainWindow::switchToProfile(const QString &profileId)
     if (m_settingsPanel) {
         m_settingsPanel->unbindInstance();
     }
+    if (m_savePanel) {
+        m_savePanel->unbindInstance();
+    }
 
     if (m_currentInstance) {
         m_currentInstance->deleteLater();
@@ -295,6 +298,9 @@ void MainWindow::switchToProfile(const QString &profileId)
     }
     if (m_settingsPanel) {
         m_settingsPanel->bindInstance(m_currentInstance);
+    }
+    if (m_savePanel) {
+        m_savePanel->bindInstance(m_currentInstance);
     }
 
     m_sidebar->setCurrentProfileId(profileId);

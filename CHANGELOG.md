@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.17] - 2026-08-25
+
+### Fixed
+- 修復在 UI 2.0 更新後，切換伺服器設定檔時未正確將 ServerInstance 綁定至 SaveManagerPanel，導致所有遊戲皆錯誤顯示「此遊戲未設定存檔管理」的問題。
+
 ## [2.0.16] - 2026-08-25
 
 ### Fixed
