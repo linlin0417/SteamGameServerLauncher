@@ -3,7 +3,7 @@
 // APP_VERSION is defined via CMake compile definitions.
 // This fallback is for IDE intellisense only.
 #ifndef APP_VERSION
-#define APP_VERSION "2.0.18"
+#define APP_VERSION "2.0.19"
 #endif
 
 namespace AppConfig {

@@ -298,7 +298,8 @@ void SaveManagerPanel::onExportSave()
     bool ok = MapPackager::exportMap(exportPath, dir, prospectName, meta, m_editPreviewPath->text(), &errorMsg);
     
     if (ok) {
-        emit logMessage(QStringLiteral("成功匯出地圖包: ") + exportPath);
+        QString msg = QStringLiteral("成功匯出地圖包: \n") + exportPath;
+        emit logMessage(msg);
         
         if (m_chkLegacyFormat->isVisible() && m_chkLegacyFormat->isChecked()) {
             QString legacyPath = exportPath;
@@ -306,13 +307,17 @@ void SaveManagerPanel::onExportSave()
             
             bool okLegacy = MapPackager::exportMap(legacyPath, dir, prospectName, meta, m_editPreviewPath->text(), &errorMsg);
             if (okLegacy) {
+                msg += QStringLiteral("\n\n成功匯出舊版地圖包: \n") + legacyPath;
                 emit logMessage(QStringLiteral("成功匯出舊版地圖包: ") + legacyPath);
             } else {
+                msg += QStringLiteral("\n\n但匯出舊版地圖包失敗: \n") + errorMsg;
                 emit logMessage(QStringLiteral("匯出舊版地圖包失敗: ") + errorMsg);
             }
         }
+        QMessageBox::information(this, QStringLiteral("匯出成功"), msg);
     } else {
         emit logMessage(QStringLiteral("匯出地圖包失敗: ") + errorMsg);
+        QMessageBox::critical(this, QStringLiteral("匯出失敗"), QStringLiteral("匯出地圖包失敗:\n") + errorMsg);
     }
 }
 
@@ -348,7 +353,9 @@ void SaveManagerPanel::onImportSave()
     if (importOk) {
         emit logMessage(QStringLiteral("成功匯入地圖包: ") + importPath);
         refreshSaveList();
+        QMessageBox::information(this, QStringLiteral("匯入成功"), QStringLiteral("地圖包匯入完成！"));
     } else {
         emit logMessage(QStringLiteral("匯入地圖包失敗: ") + errorMsg);
+        QMessageBox::critical(this, QStringLiteral("匯入失敗"), QStringLiteral("匯入地圖包失敗:\n") + errorMsg);
     }
 }

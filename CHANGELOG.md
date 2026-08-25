@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.19] - 2026-08-26
+
+### Fixed
+- 為 `SaveManagerPanel` 新增了匯出與匯入地圖包時的 `QMessageBox` 對話框回饋，修復原本僅透過背景 `logMessage` 輸出，導致使用者以為「沒有任何反應」的問題。
+
 ## [2.0.18] - 2026-08-26
 
 ### Added
