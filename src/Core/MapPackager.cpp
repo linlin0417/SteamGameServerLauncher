@@ -77,15 +77,6 @@ bool MapPackager::exportMap(const QString &exportPath,
                             const QString &previewImagePath,
                             QString *errorOut)
 {
-    // 驗證來源存檔是否存在
-    const QString savePath = prospectDir + '/' + prospectName + ".json";
-    if (!QFileInfo::exists(savePath)) {
-        if (errorOut) {
-            *errorOut = QString("找不到來源存檔: %1").arg(savePath);
-        }
-        return false;
-    }
-
     // 初始化 ZIP 寫入器
     mz_zip_archive archive;
     memset(&archive, 0, sizeof (archive));
@@ -131,10 +122,42 @@ bool MapPackager::exportMap(const QString &exportPath,
         }
     }
 
-    // --- 寫入主存檔 saves/[prospectName].json ---
-    {
+    // --- 根據 patterns 找出需要打包的主存檔與備份檔 ---
+    QDir dir(prospectDir);
+    QStringList patterns = metadata.saveFilePatterns;
+    if (patterns.isEmpty()) {
+        patterns << QStringLiteral("*.json") << QStringLiteral("*.json.backup"); // 舊版相容
+    }
+
+    QStringList targetFiles;
+    for (const QString &pattern : patterns) {
+        if (pattern.startsWith(QStringLiteral("*."))) {
+            QString suffix = pattern.mid(1);
+            QString exactFileName = prospectName + suffix;
+            if (QFileInfo::exists(dir.filePath(exactFileName))) {
+                targetFiles.append(exactFileName);
+            }
+        } else {
+            // 如果不是 *. 結尾，直接嘗試加入 (可能支援其他模式)
+            if (QFileInfo::exists(dir.filePath(pattern))) {
+                targetFiles.append(pattern);
+            }
+        }
+    }
+
+    if (targetFiles.isEmpty()) {
+        if (errorOut) {
+            *errorOut = QString("找不到來源存檔: %1").arg(prospectName);
+        }
+        mz_zip_writer_end(&archive);
+        return false;
+    }
+
+    // --- 寫入目標檔案至 saves 目錄 ---
+    for (const QString &fileName : targetFiles) {
+        QString savePath = dir.filePath(fileName);
         std::string savePathUtf8 = savePath.toUtf8().constData();
-        std::string archiveName  = (QString("saves/") + prospectName + ".json").toUtf8().constData();
+        std::string archiveName  = (QString("saves/") + fileName).toUtf8().constData();
 
         if (!mz_zip_writer_add_file(&archive,
                                     archiveName.c_str(),
@@ -143,32 +166,10 @@ bool MapPackager::exportMap(const QString &exportPath,
                                     0,
                                     MZ_DEFAULT_COMPRESSION)) {
             if (errorOut) {
-                *errorOut = QString("寫入主存檔至壓縮檔時失敗: %1").arg(savePath);
+                *errorOut = QString("寫入存檔至壓縮檔時失敗: %1").arg(savePath);
             }
             mz_zip_writer_end(&archive);
             return false;
-        }
-    }
-
-    // --- 若存在 .json.backup 備份檔則一併寫入 ---
-    {
-        const QString backupPath = savePath + ".backup";
-        if (QFileInfo::exists(backupPath)) {
-            std::string backupPathUtf8 = backupPath.toUtf8().constData();
-            std::string backupArchive  = (QString("saves/") + prospectName + ".json.backup").toUtf8().constData();
-
-            if (!mz_zip_writer_add_file(&archive,
-                                        backupArchive.c_str(),
-                                        backupPathUtf8.c_str(),
-                                        nullptr,
-                                        0,
-                                        MZ_DEFAULT_COMPRESSION)) {
-                if (errorOut) {
-                    *errorOut = QString("寫入備份存檔至壓縮檔時失敗: %1").arg(backupPath);
-                }
-                mz_zip_writer_end(&archive);
-                return false;
-            }
         }
     }
 

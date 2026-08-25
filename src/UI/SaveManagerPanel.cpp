@@ -209,10 +209,38 @@ void SaveManagerPanel::refreshSaveList()
     }
     
     QStringList files = dir.entryList(patterns, QDir::Files | QDir::NoDotAndDotDot);
+    QStringList uniqueNames;
+    
     for (const QString &file : files) {
-        // Strip extension to get prospect name
-        QFileInfo fi(file);
-        m_comboSaves->addItem(fi.completeBaseName());
+        QString prospectName = file;
+        
+        // 嘗試根據 pattern 移除副檔名
+        bool matched = false;
+        for (const QString &pattern : patterns) {
+            if (pattern.startsWith(QStringLiteral("*."))) {
+                QString suffix = pattern.mid(1); // e.g. ".json", ".json.backup"
+                if (file.endsWith(suffix, Qt::CaseInsensitive)) {
+                    prospectName = file.left(file.length() - suffix.length());
+                    matched = true;
+                    break;
+                }
+            }
+        }
+        
+        // 若沒有被 pattern 匹配或移去副檔名，則使用預設方法
+        if (!matched) {
+            QFileInfo fi(file);
+            prospectName = fi.completeBaseName();
+        }
+        
+        if (!uniqueNames.contains(prospectName)) {
+            uniqueNames.append(prospectName);
+        }
+    }
+    
+    uniqueNames.sort();
+    for (const QString &name : uniqueNames) {
+        m_comboSaves->addItem(name);
     }
     
     if (m_comboSaves->count() > 0) {
@@ -257,6 +285,12 @@ void SaveManagerPanel::onExportSave()
     meta.notes = m_editNotes->toPlainText();
     meta.timestamp = QDateTime::currentDateTime().toString(Qt::ISODate);
     meta.launcherVersion = QStringLiteral("2.0.0");
+    
+    // UI 2.0.0 新增: 支援多遊戲設定檔
+    meta.formatVersion = QStringLiteral("2.0.0");
+    meta.gameProfileId = m_instance->profile().id;
+    meta.gameDisplayName = m_instance->profile().displayName;
+    meta.saveFilePatterns = m_instance->profile().saveFilePatterns;
     
     QString dir = savesDir();
     QString errorMsg;

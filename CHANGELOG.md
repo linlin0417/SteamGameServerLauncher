@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.16] - 2026-08-25
+
+### Fixed
+- 重構地圖存檔包裝核心 (`MapPackager`)，使其動態支援讀取多遊戲不同的 `saveFilePatterns`，不再硬編碼 Icarus 專用的 `.json` 與 `.json.backup`。
+- 修復 `SaveManagerPanel` 匯出存檔列表在遇到多重副檔名（如 `.json.backup`）時發生重複讀取，並導致檔案名稱截斷錯誤的問題。
+- 修復 `SaveManagerPanel` 匯出存檔時遺漏寫入 UI 2.0 新增的 `formatVersion` 與 `saveFilePatterns` 中繼資料，解決這些地圖包被誤判為舊版格式的問題。
+
 ## [2.0.15] - 2026-08-24
 
 ### Fixed
