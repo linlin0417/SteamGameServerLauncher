@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.20] - 2026-08-26
+
+### Fixed
+- 修復因為設定檔中核心路徑 (如 `installDir`) 被意外儲存為空字串，導致 `MapPackager` 無法建立目標目錄，進而使存檔匯入失敗的問題。現在核心路徑已防呆，不再允許被空字串覆蓋預設值。
+
 ## [2.0.19] - 2026-08-26
 
 ### Fixed

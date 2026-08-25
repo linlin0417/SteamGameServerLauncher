@@ -374,9 +374,9 @@ void ServerSettingsPanel::saveSettingsFromUI()
     if (!m_instance) return;
 
     QJsonObject settings;
-    settings.insert(QStringLiteral("steamCmdPath"), m_editSteamCmdPath->text());
-    settings.insert(QStringLiteral("installDir"), m_editInstallDir->text());
-    settings.insert(QStringLiteral("serverExePath"), m_editServerExePath->text());
+    if (!m_editSteamCmdPath->text().isEmpty()) settings.insert(QStringLiteral("steamCmdPath"), m_editSteamCmdPath->text());
+    if (!m_editInstallDir->text().isEmpty()) settings.insert(QStringLiteral("installDir"), m_editInstallDir->text());
+    if (!m_editServerExePath->text().isEmpty()) settings.insert(QStringLiteral("serverExePath"), m_editServerExePath->text());
     settings.insert(QStringLiteral("additionalArgs"), m_editAdditionalArgs->text());
     settings.insert(QStringLiteral("discordWebhook"), m_editDiscordWebhook->text());
 

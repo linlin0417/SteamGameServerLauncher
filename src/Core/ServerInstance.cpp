@@ -106,6 +106,13 @@ QJsonObject ServerInstance::mergedSettings() const
     merged["serverExePath"] = QDir::toNativeSeparators(serverExePath());
 
     for (auto it = m_settings.constBegin(); it != m_settings.constEnd(); ++it) {
+        if (it.value().isString() && it.value().toString().isEmpty()) {
+            if (it.key() == QStringLiteral("installDir") || 
+                it.key() == QStringLiteral("steamCmdPath") || 
+                it.key() == QStringLiteral("serverExePath")) {
+                continue; // 這些核心路徑不允許被空字串覆蓋預設值
+            }
+        }
         merged.insert(it.key(), it.value());
     }
 
