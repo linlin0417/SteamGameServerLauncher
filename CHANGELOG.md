@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-08-27
+
+### Added
+- 新增 `Bootstrap.exe` 獨立自檢與更新程式，提供包含手動安裝包掃描、熱修復自動檢查與背景下載、`launcher_settings.json` 設定檔損毀自動備份與還原、一般更新檢查等四階段啟動前自檢功能。
+- 新增 `VersionParser` 核心模組，全面支援 `X.X.X-hotfixY`、`-devY`、`-preview`、`-patchY` 等版本號後綴與優先權比對。
+- 在主程式的「關於/更新」面板中新增了「手動安裝更新檔」按鈕，允許使用者選擇本地的 `.sgsl_update` 或 `.zip` 進行離線手動安裝。
+- 開發者工具新增 `DevTool/BuildPatchRelease.js`，提供互動式的快速打包腳本，能輕易輸出含有版號後綴的 `.sgsl_update` 專用更新包，並自動產生 `.info.json` 供 Bootstrap 掃描讀取。
+- GitHub Actions 工作流程現已支援透過帶有後綴的 Git Tag（例如 `v2.1.0-hotfix1`）觸發編譯，並會自動標記為 Pre-release。
+
+### Refactored
+- `GithubUpdater` 現已改用新的 `VersionParser`，並移除原有的 `QVersionNumber` 依賴。
+- 大幅重構 `CMakeLists.txt` 以支援 `APP_VERSION_SUFFIX` 注入，與解決 MSVC 環境下 Qt6 的 C++17 編譯問題。
+
+
 ## [2.0.20] - 2026-08-26
 
 ### Fixed
