@@ -29,13 +29,34 @@ jobs:
       run: |
         $cmake_content = Get-Content CMakeLists.txt -Raw
         if ($cmake_content -match 'project\([^)]+VERSION\s+([0-9.]+)') {
-            $version = $matches[1]
-            echo "VERSION=$version" >> $env:GITHUB_ENV
-            echo "Extracted version: $version"
+            $baseVersion = $matches[1]
         } else {
-            echo "VERSION=1.0.0" >> $env:GITHUB_ENV
-            echo "Failed to extract version, using fallback 1.0.0"
+            $baseVersion = '1.0.0'
+            Write-Warning 'Failed to extract base version, using fallback 1.0.0'
         }
+
+        # 從 Git Tag 提取完整版本字串（含後綴），例如 refs/tags/v2.0.20-hotfix1
+        $gitTag = $env:GITHUB_REF -replace '^refs/tags/v?', ''  # 例如 2.0.20-hotfix1
+        if ($gitTag -match '^[0-9]+\.[0-9]+\.[0-9]+(-(.+))?$') {
+            $fullVersion = $gitTag
+            $suffix = if ($matches[2]) { $matches[2] } else { '' }
+        } else {
+            # 若非 Tag 觸發，fallback 為純 CMake 版本
+            $fullVersion = $baseVersion
+            $suffix = ''
+        }
+
+        $isPrerelease = if ($suffix) { 'true' } else { 'false' }
+
+        echo "VERSION=$baseVersion" >> $env:GITHUB_ENV
+        echo "VERSION_FULL=$fullVersion" >> $env:GITHUB_ENV
+        echo "VERSION_SUFFIX=$suffix" >> $env:GITHUB_ENV
+        echo "IS_PRERELEASE=$isPrerelease" >> $env:GITHUB_ENV
+
+        Write-Output "Base version : $baseVersion"
+        Write-Output "Full version : $fullVersion"
+        Write-Output "Suffix       : $suffix"
+        Write-Output "Is prerelease: $isPrerelease"
 
     - name: Install Qt
       uses: jurplel/install-qt-action@v3
@@ -49,6 +70,7 @@ jobs:
       run: >
         cmake -S . -B build
         -DCMAKE_BUILD_TYPE=Release
+        -DAPP_VERSION_SUFFIX="${{ env.VERSION_SUFFIX }}"
 
     - name: Build
       run: cmake --build build --config Release --parallel
@@ -181,11 +203,11 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: v${{ env.VERSION }}
-        name: Release v${{ env.VERSION }}
+        tag_name: v${{ env.VERSION_FULL }}
+        name: Release v${{ env.VERSION_FULL }}
         body_path: release_notes.txt
         draft: false
-        prerelease: false
+        prerelease: ${{ env.IS_PRERELEASE == 'true' }}
         files: |
           installer/SteamGameServerLauncher-*.exe
           build/SteamGameServerLauncher-*.zip

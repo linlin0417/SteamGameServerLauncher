@@ -1,9 +1,27 @@
 cmake_minimum_required(VERSION 3.16)
-project(SteamGameServerLauncher VERSION 2.0.20 LANGUAGES C CXX)
+project(SteamGameServerLauncher VERSION 2.1.0 LANGUAGES C CXX)
+
+# --- 版本後綴支援（方案 A：Git Tag 帶後綴） ---
+# 本地開發時留空即可；CI 階段由 GitHub Actions 從 Git Tag 中提取後綴後注入
+# 例如：cmake ... -DAPP_VERSION_SUFFIX="hotfix1"
+set(APP_VERSION_SUFFIX "" CACHE STRING "Version suffix for non-stable builds (e.g. hotfix1, dev2, preview)")
+
+if(APP_VERSION_SUFFIX)
+    set(APP_VERSION_FULL "${PROJECT_VERSION}-${APP_VERSION_SUFFIX}")
+else()
+    set(APP_VERSION_FULL "${PROJECT_VERSION}")
+endif()
+
+message(STATUS "Build version: ${APP_VERSION_FULL}")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
+
+# MSVC 需要明確傳遞 /Zc:__cplusplus 才能讓 Qt6 正確識別 C++17
+if(MSVC)
+    add_compile_options(/Zc:__cplusplus /utf-8)
+endif()
 
 # Try Qt6 first, fall back to Qt5
 find_package(Qt6 COMPONENTS Widgets Network QUIET)
@@ -28,6 +46,7 @@ set(LAUNCHER_SOURCES
     src/Core/SteamCmdManager.cpp
     src/Core/ServerManager.cpp
     src/Core/GithubUpdater.cpp
+    src/Core/VersionParser.cpp
     src/Core/MapPackager.cpp
     src/Core/DiscordManager.cpp
     src/Core/GameProfile.cpp
@@ -49,6 +68,7 @@ set(LAUNCHER_HEADERS
     src/Core/SteamCmdManager.h
     src/Core/ServerManager.h
     src/Core/GithubUpdater.h
+    src/Core/VersionParser.h
     src/Core/MapPackager.h
     src/Core/DiscordManager.h
     src/Core/GameProfile.h
@@ -79,7 +99,7 @@ target_link_libraries(SteamGameServerLauncher PRIVATE
 )
 
 target_compile_definitions(SteamGameServerLauncher PRIVATE
-    APP_VERSION="${PROJECT_VERSION}"
+    APP_VERSION="${APP_VERSION_FULL}"
 )
 
 # --- Updater ---
@@ -94,7 +114,30 @@ set_target_properties(Updater PROPERTIES AUTOMOC OFF)
 target_link_libraries(Updater PRIVATE Qt${QT_VERSION_MAJOR}::Core)
 
 target_compile_definitions(Updater PRIVATE
-    APP_VERSION="${PROJECT_VERSION}"
+    APP_VERSION="${APP_VERSION_FULL}"
+)
+
+# --- Bootstrap ---
+add_executable(Bootstrap WIN32
+    Bootstrap/main.cpp
+    Bootstrap/BootstrapWindow.cpp
+    Bootstrap/BootstrapWindow.h
+    src/Core/VersionParser.cpp
+    src/Core/VersionParser.h
+)
+
+target_include_directories(Bootstrap PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/Bootstrap
+)
+
+target_link_libraries(Bootstrap PRIVATE
+    Qt${QT_VERSION_MAJOR}::Widgets
+    Qt${QT_VERSION_MAJOR}::Network
+)
+
+target_compile_definitions(Bootstrap PRIVATE
+    APP_VERSION="${APP_VERSION_FULL}"
 )
 
 # --- windeployqt ---
@@ -109,11 +152,11 @@ if(WINDEPLOYQT_EXECUTABLE AND WIN32)
         COMMAND "${WINDEPLOYQT_EXECUTABLE}" --no-translations --compiler-runtime --dir "$<TARGET_FILE_DIR:SteamGameServerLauncher>" "$<TARGET_FILE:SteamGameServerLauncher>"
         COMMENT "Running windeployqt on SteamGameServerLauncher..."
     )
-    # No windeployqt needed for Updater anymore since it is pure C++
+    # Bootstrap 共用主程式的 Qt DLL，不需要獨立執行 windeployqt
 endif()
 
 # --- Installation ---
-install(TARGETS SteamGameServerLauncher Updater DESTINATION .)
+install(TARGETS SteamGameServerLauncher Updater Bootstrap DESTINATION .)
 install(DIRECTORY "$<TARGET_FILE_DIR:SteamGameServerLauncher>/" DESTINATION .
         FILES_MATCHING PATTERN "*.dll" PATTERN "plugins/*" PATTERN "platforms/*" PATTERN "styles/*" PATTERN "tls/*" PATTERN "networkinformation/*"
         PATTERN "_CPack_Packages" EXCLUDE

@@ -1,4 +1,5 @@
 #include "GithubUpdater.h"
+#include "VersionParser.h"
 #include "../version.h"
 
 #include <QCoreApplication>
@@ -13,7 +14,6 @@
 #include <QProcess>
 #include <QStandardPaths>
 #include <QCryptographicHash>
-#include <QVersionNumber>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -261,7 +261,7 @@ void GithubUpdater::applyUpdate(const QString &zipPath)
 bool GithubUpdater::isNewerVersion(const QString &remoteTag,
                                     const QString &localVer) const
 {
-    const QVersionNumber remote = QVersionNumber::fromString(remoteTag);
-    const QVersionNumber local  = QVersionNumber::fromString(localVer);
-    return remote > local;
+    const AppVersion remote = VersionParser::parse(remoteTag);
+    const AppVersion local  = VersionParser::parse(localVer);
+    return VersionParser::isNewerThan(remote, local);
 }

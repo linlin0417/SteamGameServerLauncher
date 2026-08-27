@@ -23,15 +23,17 @@ private:
     void setupUI();
     void onCheckForUpdate();
     void onDownloadUpdate();
+    void onInstallLocalUpdate();   // 手動選擇本地更新包安裝
 
     GithubUpdater *m_updater = nullptr;
 
-    QLabel *m_versionLabel = nullptr;
-    QLabel *m_updateStatusLabel = nullptr;
-    QTextEdit *m_updateNotesEdit = nullptr;
-    QPushButton *m_btnCheckUpdate = nullptr;
-    QPushButton *m_btnDownloadUpdate = nullptr;
-    QProgressBar *m_updateProgress = nullptr;
+    QLabel       *m_versionLabel      = nullptr;
+    QLabel       *m_updateStatusLabel = nullptr;
+    QTextEdit    *m_updateNotesEdit   = nullptr;
+    QPushButton  *m_btnCheckUpdate    = nullptr;
+    QPushButton  *m_btnDownloadUpdate = nullptr;
+    QPushButton  *m_btnInstallLocal   = nullptr;   // 手動安裝本地更新包
+    QProgressBar *m_updateProgress    = nullptr;
 
     QString m_pendingDownloadUrl;
     QString m_pendingSha256Url;
