@@ -147,9 +147,14 @@ get_filename_component(_qt_bin_dir "${_qt_bin_dir}" DIRECTORY)
 find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS "${_qt_bin_dir}")
 
 if(WINDEPLOYQT_EXECUTABLE AND WIN32)
+    set(WINDEPLOYQT_EXTRA_ARGS "")
+    if(MINGW)
+        set(WINDEPLOYQT_EXTRA_ARGS "-force-openssl")
+    endif()
+
     # Run windeployqt on main executable
     add_custom_command(TARGET SteamGameServerLauncher POST_BUILD
-        COMMAND "${WINDEPLOYQT_EXECUTABLE}" --no-translations --compiler-runtime -force-openssl --dir "$<TARGET_FILE_DIR:SteamGameServerLauncher>" "$<TARGET_FILE:SteamGameServerLauncher>"
+        COMMAND "${WINDEPLOYQT_EXECUTABLE}" --no-translations --compiler-runtime ${WINDEPLOYQT_EXTRA_ARGS} --dir "$<TARGET_FILE_DIR:SteamGameServerLauncher>" "$<TARGET_FILE:SteamGameServerLauncher>"
         COMMENT "Running windeployqt on SteamGameServerLauncher..."
     )
     # Bootstrap 共用主程式的 Qt DLL，不需要獨立執行 windeployqt
