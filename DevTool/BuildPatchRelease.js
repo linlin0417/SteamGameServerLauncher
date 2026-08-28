@@ -48,31 +48,48 @@ async function main() {
         process.exit(1);
     }
 
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    // 簡易參數解析
+    const args = process.argv.slice(2);
+    const getArg = (flag) => {
+        const idx = args.indexOf(flag);
+        return idx !== -1 && idx + 1 < args.length ? args[idx + 1] : null;
+    };
 
-    // 選擇後綴類型
-    log('\n請選擇版本後綴類型：');
-    VALID_SUFFIX_TYPES.forEach((t, i) => log(`  ${i + 1}. ${t}`));
-    const typeChoice = await askQuestion(rl, '\n請輸入編號 (1-6)：');
-    const typeIndex = parseInt(typeChoice, 10) - 1;
-    if (typeIndex < 0 || typeIndex >= VALID_SUFFIX_TYPES.length) {
-        error('無效的選擇，操作取消。');
+    let suffixType = getArg('--type');
+    let seq = getArg('--seq') || '';
+    let description = getArg('--desc') || '';
+    const autoConfirm = args.includes('--yes');
+
+    if (!suffixType) {
+        const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+        // 選擇後綴類型
+        log('\n請選擇版本後綴類型：');
+        VALID_SUFFIX_TYPES.forEach((t, i) => log(`  ${i + 1}. ${t}`));
+        const typeChoice = await askQuestion(rl, '\n請輸入編號 (1-6)：');
+        const typeIndex = parseInt(typeChoice, 10) - 1;
+        if (typeIndex < 0 || typeIndex >= VALID_SUFFIX_TYPES.length) {
+            error('無效的選擇，操作取消。');
+            rl.close();
+            process.exit(1);
+        }
+        suffixType = VALID_SUFFIX_TYPES[typeIndex];
+
+        // 輸入流水號
+        const seqStr = await askQuestion(rl, `請輸入流水號（例如 1、2、3，按 Enter 跳過）：`);
+        seq = seqStr ? seqStr : '';
+
+        // 輸入描述
+        description = await askQuestion(rl, `請輸入這次更新的描述（可留空）：`);
         rl.close();
+    }
+
+    if (!VALID_SUFFIX_TYPES.includes(suffixType)) {
+        error(`無效的後綴類型：${suffixType}`);
         process.exit(1);
     }
-    const suffixType = VALID_SUFFIX_TYPES[typeIndex];
-
-    // 輸入流水號
-    const seqStr = await askQuestion(rl, `請輸入流水號（例如 1、2、3，按 Enter 跳過）：`);
-    const seq = seqStr ? seqStr : '';
 
     const suffix = `${suffixType}${seq}`;
     const fullVersion = `${baseVersion}-${suffix}`;
-
-    // 輸入描述
-    const description = await askQuestion(rl, `請輸入這次更新的描述（可留空）：`);
-
-    rl.close();
 
     log(`\n${colors.gray}------------------------------------${colors.reset}`);
     log(`基礎版本  ：${baseVersion}`);
@@ -82,17 +99,19 @@ async function main() {
     log(`${colors.gray}------------------------------------${colors.reset}\n`);
 
     // 確認
-    const confirmRl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    const confirm = await new Promise((resolve) => {
-        confirmRl.question('確認開始編譯並打包？ (Y/N)：', (ans) => {
-            confirmRl.close();
-            resolve(ans.trim().toUpperCase());
+    if (!autoConfirm) {
+        const confirmRl = readline.createInterface({ input: process.stdin, output: process.stdout });
+        const confirm = await new Promise((resolve) => {
+            confirmRl.question('確認開始編譯並打包？ (Y/N)：', (ans) => {
+                confirmRl.close();
+                resolve(ans.trim().toUpperCase());
+            });
         });
-    });
 
-    if (confirm !== 'Y') {
-        warn('已取消。');
-        process.exit(0);
+        if (confirm !== 'Y') {
+            warn('已取消。');
+            process.exit(0);
+        }
     }
 
     // --- 1. CMake Configure ---
