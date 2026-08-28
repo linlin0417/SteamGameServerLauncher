@@ -3,17 +3,18 @@
 #include <QString>
 
 /// 版本後綴類型列舉
-/// 優先順序（數字越大，同主副修版本時越「新」／「正式」）：
-/// Stable=None(5) > Preview(4) > Patch(3) > HotfixLike(2) > Dev(1) > Unknown(0)
-/// 解釋：正式版（無後綴）是同 X.Y.Z 下最終完成狀態，因此優先等級最高。
-///       hotfix 是在正式版「發布前」的補丁，屬於半成品，所以正式版 > hotfix。
+/// 優先順序（數字越大，同主副修版本時越「新」）：
+/// Patch(5) > HotfixLike(4) > None(3, 正式版) > Preview(2) > Dev(1) > Unknown(0)
+/// 解釋：
+///   - 預覽版(Preview)與開發版(Dev) 屬於正式版發布「前」的測試版本，故小於 None。
+///   - 熱修復(Hotfix/tmp)與補丁(Patch) 屬於正式版發布「後」的緊急修復，故大於 None。
 enum class VersionSuffixType {
     Unknown    = 0,  // 無法辨識的後綴
-    Dev        = 1,  // -devY（工程測試版）
-    HotfixLike = 2,  // -hotfixY / -tmpY / -quickfixY（零食補釘版）
-    Patch      = 3,  // -patchY（特供補丁版，保留）
-    Preview    = 4,  // -preview（預覽版）
-    None       = 5,  // 無後綴（正式版，同 X.Y.Z 下最高優先）
+    Dev        = 1,  // -devY（工程測試版，發布前）
+    Preview    = 2,  // -preview（預覽版，發布前）
+    None       = 3,  // 無後綴（正式版基準）
+    HotfixLike = 4,  // -hotfixY / -tmpY / -quickfixY（零食補釘版，發布後）
+    Patch      = 5,  // -patchY（特供補丁版，發布後）
 };
 
 /// 版本資訊結構

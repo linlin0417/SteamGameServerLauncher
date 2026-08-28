@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(SteamGameServerLauncher VERSION 2.1.0 LANGUAGES C CXX)
+project(SteamGameServerLauncher VERSION 2.1.1 LANGUAGES C CXX)
 
 # --- 版本後綴支援（方案 A：Git Tag 帶後綴） ---
 # 本地開發時留空即可；CI 階段由 GitHub Actions 從 Git Tag 中提取後綴後注入
@@ -149,7 +149,7 @@ find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS "${_qt_bin_dir}")
 if(WINDEPLOYQT_EXECUTABLE AND WIN32)
     # Run windeployqt on main executable
     add_custom_command(TARGET SteamGameServerLauncher POST_BUILD
-        COMMAND "${WINDEPLOYQT_EXECUTABLE}" --no-translations --compiler-runtime --dir "$<TARGET_FILE_DIR:SteamGameServerLauncher>" "$<TARGET_FILE:SteamGameServerLauncher>"
+        COMMAND "${WINDEPLOYQT_EXECUTABLE}" --no-translations --compiler-runtime -force-openssl --dir "$<TARGET_FILE_DIR:SteamGameServerLauncher>" "$<TARGET_FILE:SteamGameServerLauncher>"
         COMMENT "Running windeployqt on SteamGameServerLauncher..."
     )
     # Bootstrap 共用主程式的 Qt DLL，不需要獨立執行 windeployqt
@@ -161,6 +161,18 @@ install(DIRECTORY "$<TARGET_FILE_DIR:SteamGameServerLauncher>/" DESTINATION .
         FILES_MATCHING PATTERN "*.dll" PATTERN "plugins/*" PATTERN "platforms/*" PATTERN "styles/*" PATTERN "tls/*" PATTERN "networkinformation/*"
         PATTERN "_CPack_Packages" EXCLUDE
         PATTERN "CMakeFiles" EXCLUDE)
+
+# 產生並安裝 qt.conf 以確保外掛路徑正確載入
+file(GENERATE OUTPUT "$<TARGET_FILE_DIR:SteamGameServerLauncher>/qt.conf" CONTENT "[Paths]\nPlugins=.\n")
+install(FILES "$<TARGET_FILE_DIR:SteamGameServerLauncher>/qt.conf" DESTINATION .)
+
+if(WIN32 AND MINGW)
+    # 本地 MinGW 打包時，主動包入 OpenSSL 3 以確保 Qt6 TLS 初始化成功
+    install(FILES 
+        "C:/Program Files/MySQL/MySQL Shell 8.0/bin/libssl-3-x64.dll"
+        "C:/Program Files/MySQL/MySQL Shell 8.0/bin/libcrypto-3-x64.dll"
+        DESTINATION . OPTIONAL)
+endif()
 
 # --- 安裝 SGSL 圖示 ---
 install(FILES "${CMAKE_SOURCE_DIR}/src/UI/SGSL_icon.ico" DESTINATION .)

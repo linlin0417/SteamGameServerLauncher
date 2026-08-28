@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-08-29
+
+### Fixed
+- 修復了全新的純淨部署環境中，因缺少 `qt.conf` 與 OpenSSL 3 動態連結檔導致的「TLS initialization failed」無法連線檢查更新的問題。
+- 修復了本地使用 MinGW 打包時，`windeployqt` 未能自動打包加密連線後端模組（`qopensslbackend.dll`）的缺失。
+- 修正了核心 `VersionParser` 的版號優先權邏輯，現在帶有修補後綴的版本（如 `-tmp`、`-hotfix`、`-patch`）會正確被視為比同號正式版（如 `2.1.0`）更新，避免系統誤判並提示降級。
+
 ## [2.1.0] - 2026-08-27
 
 ### Added
