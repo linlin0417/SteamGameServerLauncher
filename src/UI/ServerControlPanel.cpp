@@ -2,6 +2,7 @@
 #include "../Core/ServerInstance.h"
 #include "../Core/ServerManager.h"
 #include "../Core/GameProfile.h"
+#include "../Core/LogColorizer.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -9,6 +10,7 @@
 #include <QPushButton>
 #include <QTextEdit>
 #include <QProgressBar>
+#include <QTextDocument>
 
 ServerControlPanel::ServerControlPanel(QWidget *parent)
     : QWidget(parent)
@@ -77,6 +79,7 @@ void ServerControlPanel::setupUI()
     m_logOutput = new QTextEdit;
     m_logOutput->setReadOnly(true);
     m_logOutput->setPlaceholderText(tr("Console 日誌區..."));
+    m_logOutput->document()->setMaximumBlockCount(10000);
     m_logOutput->setStyleSheet(QStringLiteral(
         "QTextEdit { "
         "background-color: #101214; "
@@ -229,6 +232,6 @@ void ServerControlPanel::updateStateUI()
 void ServerControlPanel::appendLog(const QString &message)
 {
     if (m_logOutput) {
-        m_logOutput->append(message);
+        m_logOutput->append(LogColorizer::formatToHtml(message));
     }
 }

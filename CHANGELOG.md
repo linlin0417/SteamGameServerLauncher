@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-09-01
+
+### Performance
+- 優化 `GameProfileManager` 資料結構與搜尋效率，將 `m_profiles` 的線性搜尋替換為 `QHash` ($O(1)$) 搜尋，提升大規模設定檔的查詢速度。
+- 減少 `saveProfile` 中的檔案 I/O 同步開銷，將寫入操作移至 `QThreadPool` 背景執行緒執行，避免阻塞 UI 主執行緒。
+
 ## [2.1.1] - 2026-08-29
 
 ### Fixed

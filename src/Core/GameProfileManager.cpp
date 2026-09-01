@@ -6,6 +6,8 @@
 #include <QJsonObject>
 #include <QDateTime>
 #include <QDebug>
+#include <QThreadPool>
+#include <QRunnable>
 
 GameProfileManager::GameProfileManager(const QString &userProfilesDir, QObject *parent)
     : QObject(parent), m_userProfilesDir(userProfilesDir)
@@ -15,7 +17,8 @@ GameProfileManager::GameProfileManager(const QString &userProfilesDir, QObject *
 
 void GameProfileManager::reload()
 {
-    m_profiles.clear();
+    m_profileIds.clear();
+    m_profileMap.clear();
     loadBuiltinProfiles();
     loadUserProfiles();
     emit profilesChanged();
@@ -23,17 +26,16 @@ void GameProfileManager::reload()
 
 QList<GameProfile> GameProfileManager::allProfiles() const
 {
-    return m_profiles;
+    QList<GameProfile> list;
+    for (const QString &id : m_profileIds) {
+        list.append(m_profileMap.value(id));
+    }
+    return list;
 }
 
 GameProfile GameProfileManager::profileById(const QString &id) const
 {
-    for (const GameProfile &profile : m_profiles) {
-        if (profile.id == id) {
-            return profile;
-        }
-    }
-    return GameProfile();
+    return m_profileMap.value(id, GameProfile());
 }
 
 bool GameProfileManager::saveProfile(const GameProfile &profile)
@@ -45,30 +47,35 @@ bool GameProfileManager::saveProfile(const GameProfile &profile)
     }
 
     QString filePath = QDir(m_userProfilesDir).filePath(profile.id + ".json");
-    QFile file(filePath);
-    if (!file.open(QIODevice::WriteOnly)) {
-        qWarning() << "Failed to open file for writing:" << filePath;
-        return false;
+
+    if (!m_profileMap.contains(profile.id)) {
+        m_profileIds.append(profile.id);
     }
-
-    QJsonDocument doc(profile.toJson());
-    file.write(doc.toJson());
-    file.close();
-
-    bool found = false;
-    for (int i = 0; i < m_profiles.size(); ++i) {
-        if (m_profiles[i].id == profile.id) {
-            m_profiles[i] = profile;
-            found = true;
-            break;
-        }
-    }
-
-    if (!found) {
-        m_profiles.append(profile);
-    }
-
+    m_profileMap.insert(profile.id, profile);
     emit profilesChanged();
+
+    class ProfileSaveTask : public QRunnable {
+    public:
+        ProfileSaveTask(const QString &filePath, const GameProfile &profile) 
+            : m_filePath(filePath), m_profile(profile) {}
+        
+        void run() override {
+            QFile file(m_filePath);
+            if (!file.open(QIODevice::WriteOnly)) {
+                qWarning() << "Failed to open file for writing:" << m_filePath;
+                return;
+            }
+            QJsonDocument doc(m_profile.toJson());
+            file.write(doc.toJson());
+            file.close();
+        }
+    private:
+        QString m_filePath;
+        GameProfile m_profile;
+    };
+
+    QThreadPool::globalInstance()->start(new ProfileSaveTask(filePath, profile));
+
     return true;
 }
 
@@ -88,30 +95,18 @@ bool GameProfileManager::removeProfile(const QString &id)
         }
     }
 
-    bool removed = false;
-    for (int i = 0; i < m_profiles.size(); ++i) {
-        if (m_profiles[i].id == id) {
-            m_profiles.removeAt(i);
-            removed = true;
-            break;
-        }
-    }
-
-    if (removed) {
+    if (m_profileMap.remove(id) > 0) {
+        m_profileIds.removeAll(id);
         emit profilesChanged();
+        return true;
     }
     
-    return removed;
+    return false;
 }
 
 bool GameProfileManager::hasProfile(const QString &id) const
 {
-    for (const GameProfile &profile : m_profiles) {
-        if (profile.id == id) {
-            return true;
-        }
-    }
-    return false;
+    return m_profileMap.contains(id);
 }
 
 QString GameProfileManager::generateUniqueId() const
@@ -142,7 +137,10 @@ void GameProfileManager::loadBuiltinProfiles()
             if (doc.isObject()) {
                 GameProfile profile = GameProfile::fromJson(doc.object());
                 if (!profile.id.isEmpty()) {
-                    m_profiles.append(profile);
+                    if (!m_profileMap.contains(profile.id)) {
+                        m_profileIds.append(profile.id);
+                    }
+                    m_profileMap.insert(profile.id, profile);
                 }
             }
             file.close();
@@ -167,17 +165,10 @@ void GameProfileManager::loadUserProfiles()
             if (doc.isObject()) {
                 GameProfile profile = GameProfile::fromJson(doc.object());
                 if (!profile.id.isEmpty()) {
-                    bool replaced = false;
-                    for (int i = 0; i < m_profiles.size(); ++i) {
-                        if (m_profiles[i].id == profile.id) {
-                            m_profiles[i] = profile;
-                            replaced = true;
-                            break;
-                        }
+                    if (!m_profileMap.contains(profile.id)) {
+                        m_profileIds.append(profile.id);
                     }
-                    if (!replaced) {
-                        m_profiles.append(profile);
-                    }
+                    m_profileMap.insert(profile.id, profile);
                 }
             }
             file.close();

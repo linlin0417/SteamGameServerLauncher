@@ -1,6 +1,7 @@
 #include "ServerSettingsPanel.h"
 #include "../Core/ServerInstance.h"
 #include "../Core/GameProfile.h"
+#include "../Core/LogColorizer.h"
 #include <QFormLayout>
 #include <QLineEdit>
 #include <QSpinBox>
@@ -19,6 +20,7 @@
 #include <QFileInfo>
 #include <QDialog>
 #include <QTextEdit>
+#include <QTextDocument>
 
 ServerSettingsPanel::ServerSettingsPanel(QWidget *parent)
     : QWidget(parent)
@@ -222,7 +224,7 @@ void ServerSettingsPanel::unbindInstance()
 void ServerSettingsPanel::appendLogToConsole(const QString &msg)
 {
     if (m_consoleLogOutput) {
-        m_consoleLogOutput->append(msg);
+        m_consoleLogOutput->append(LogColorizer::formatToHtml(msg));
     }
 }
 
@@ -504,6 +506,7 @@ void ServerSettingsPanel::onOpenConsole()
         QVBoxLayout *layout = new QVBoxLayout(m_consoleDialog);
         m_consoleLogOutput = new QTextEdit(m_consoleDialog);
         m_consoleLogOutput->setReadOnly(true);
+        m_consoleLogOutput->document()->setMaximumBlockCount(10000);
         m_consoleLogOutput->setStyleSheet(
             "QTextEdit { "
             "background-color: #101214; "

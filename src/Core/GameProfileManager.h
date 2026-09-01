@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QList>
 #include <QString>
+#include <QHash>
 
 struct GameProfile;
 
@@ -49,5 +50,6 @@ private:
     void loadUserProfiles();
 
     QString m_userProfilesDir;
-    QList<GameProfile> m_profiles;
+    QList<QString> m_profileIds;
+    QHash<QString, GameProfile> m_profileMap;
 };

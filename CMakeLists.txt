@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(SteamGameServerLauncher VERSION 2.1.1 LANGUAGES C CXX)
+project(SteamGameServerLauncher VERSION 2.2.1 LANGUAGES C CXX)
 
 # --- 版本後綴支援（方案 A：Git Tag 帶後綴） ---
 # 本地開發時留空即可；CI 階段由 GitHub Actions 從 Git Tag 中提取後綴後注入
@@ -53,6 +53,7 @@ set(LAUNCHER_SOURCES
     src/Core/GameProfileManager.cpp
     src/Core/ServerInstance.cpp
     src/Core/SettingsMigrator.cpp
+    src/Core/LogColorizer.cpp
     src/UI/SidebarWidget.cpp
     src/UI/ServerControlPanel.cpp
     src/UI/ServerSettingsPanel.cpp
@@ -75,6 +76,7 @@ set(LAUNCHER_HEADERS
     src/Core/GameProfileManager.h
     src/Core/ServerInstance.h
     src/Core/SettingsMigrator.h
+    src/Core/LogColorizer.h
     src/UI/SidebarWidget.h
     src/UI/ServerControlPanel.h
     src/UI/ServerSettingsPanel.h
